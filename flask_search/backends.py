@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# **************************************************************************
+# Copyright © 2017 jianglin
+# File Name: backends.py
+# Author: jianglin
+# Email: xiyang0807@gmail.com
+# Created: 2017-04-15 20:03:27 (CST)
+# Last Update:星期日 2017-4-16 0:31:39 (CST)
+#          By:
+# Description:
+# **************************************************************************
+import logging
+import os
+import os.path
+import sys
+from sqlalchemy.inspection import inspect
+from whoosh import index
+from whoosh.analysis import StemmingAnalyzer
+from whoosh.fields import ID as WHOOSH_ID
+from whoosh.fields import TEXT, Schema
+from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
+
+DEFAULT_WHOOSH_INDEX_NAME = 'whoosh_index'
+DEFAULT_ANALYZER = StemmingAnalyzer()
+
+log_console = logging.StreamHandler(sys.stderr)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(log_console)
+
+
+class Search(object):
+    def __init__(self, app=None, analyzer=None):
+        self.whoosh_path = DEFAULT_WHOOSH_INDEX_NAME
+        self._indexs = {}
+        self.analyzer = analyzer or DEFAULT_ANALYZER
+        if app is not None:
+            self.init_app(app)
+
+    def init_app(self, app):
+        self.app = app
+        whoosh_name = app.config.get('WHOOSH_BASE')
+        if whoosh_name is not None:
+            self.whoosh_path = whoosh_name
+        if not os.path.exists(self.whoosh_path):
+            os.mkdir(whoosh_name)
+        # ix=index.create_in(whoosh_name,schema)
+
+    def create_index(self, model='__all__', update=False):
+        if model == '__all__':
+            return self.create_all_index(update)
+        ix = self._index(model)
+        searchable = ix.schema.names()
+        writer = ix.writer()
+        instances = model.query.enable_eagerloads(False).yield_per(100)
+        for instance in instances:
+            attrs = {'id': str(instance.id)}
+            for i in searchable:
+                attrs[i] = str(getattr(instance, i))
+            if update:
+                logger.debug('updating index: {}'.format(instance))
+                writer.update_document(**attrs)
+            else:
+                logger.debug('creating index: {}'.format(instance))
+                writer.add_document(**attrs)
+        writer.commit()
+        return ix
+
+    def create_all_index(self, update=False):
+        all_models = self.app.extensions[
+            'sqlalchemy'].db.Model._decl_class_registry.values()
+        models = [i for i in all_models if hasattr(i, '__searchable__')]
+        ixs = []
+        for m in models:
+            ix = self.create_index(m, update)
+            ixs.append(ix)
+        return ixs
+
+    def _index(self, model):
+        '''
+        get index
+        '''
+        name = model.__table__.name
+        if name not in self._indexs:
+            ix_path = os.path.join(self.whoosh_path, model.__name__)
+            schema = self._schema(model)
+            if index.exists_in(ix_path):
+                ix = index.open_dir(ix_path)
+            else:
+                if not os.path.exists(ix_path):
+                    os.makedirs(ix_path)
+                ix = index.create_in(ix_path, schema)
+            self._indexs[name] = ix
+        return self._indexs[name]
+
+    def _schema(self, model):
+        schema_fields = {'id': WHOOSH_ID(stored=True, unique=True)}
+        searchable = set(model.__searchable__)
+        primary_keys = [key.name for key in inspect(model).primary_key]
+        for field in searchable:
+            if field in primary_keys:
+                schema_fields[field] = WHOOSH_ID(stored=True, unique=True)
+            schema_fields[field] = TEXT(
+                stored=True, analyzer=self.analyzer, sortable=True)
+        return Schema(**schema_fields)
+
+    def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
+        ix = self._index(m)
+        if fields is None:
+            fields = ix.schema.names()
+        group = OrGroup if or_ else AndGroup
+        parser = MultifieldParser(fields, ix.schema, group=group)
+        results = ix.searcher().search(parser.parse(query), limit=limit)
+        # if not results:
+        #     return self.filter(sqlalchemy.text('null'))
+        return results
