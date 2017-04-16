@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期日 2017-4-16 16:56:24 (CST)
+# Last Update:星期日 2017-4-16 23:43:28 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -50,7 +50,7 @@ class Search(object):
         if whoosh_name is not None:
             self.whoosh_path = whoosh_name
         if not os.path.exists(self.whoosh_path):
-            os.mkdir(whoosh_name)
+            os.mkdir(self.whoosh_path)
         if whoosh_enable:
             models_committed.connect(self._index_signal)
 
