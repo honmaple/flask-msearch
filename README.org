@@ -1,0 +1,66 @@
+* flask-search
+  [[https://python.org][https://img.shields.io/badge/python-3.4-brightgreen.svg]]
+  [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
+
+** Installation
+   #+BEGIN_SRC sehll
+   git clone git@github.com:honmaple/flask-search.git
+   cd flask-search
+   python setup.py install
+   #+END_SRC
+
+** Quickstart
+   #+BEGIN_SRC python
+     from flask_search import Search
+     [...]
+     search = Search()
+     search.init_app(app)
+
+     # models.py
+     class Post(db.Model):
+         __tablename__ = 'post'
+         __searchable__ = ['title', 'content']
+
+     # views.py
+     @app.route("/search")
+     def w_search():
+         keyword = request.args.get('keyword')
+         results = search.whoosh_search(Post,query=keyword,fields=['title'],limit=20)
+         return ''
+   #+END_SRC
+
+** Config
+
+   #+BEGIN_SRC python
+   WHOOSH_BASE = 'whoosh_index'
+   WHOOSH_ENABLE = True
+   #+END_SRC
+
+** Usage
+   #+BEGIN_SRC python
+     from flask_search import Search
+     [...]
+     search = Search()
+     search.init_app(app)
+   #+END_SRC
+
+*** Create_index
+   #+BEGIN_SRC sh
+   search.create_index()
+   #+END_SRC
+
+*** Update_index
+    #+BEGIN_SRC python
+    search.create_index(update=True)
+    #+END_SRC
+
+*** Delete_index
+    #+BEGIN_SRC python
+    search.create_index(delete=True)
+    #+END_SRC
+
+*** Custom Analyzer
+    #+BEGIN_SRC python
+      from jieba.analyse import ChineseAnalyzer
+      search = Search(analyzer=ChineseAnalyzer())
+    #+END_SRC

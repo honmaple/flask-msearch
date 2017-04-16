@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期日 2017-4-16 13:45:30 (CST)
+# Last Update:星期日 2017-4-16 16:56:24 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,6 +15,7 @@ import os
 import os.path
 import sys
 
+from flask_sqlalchemy import models_committed
 from sqlalchemy.inspection import inspect
 from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer, String,
                               Text)
@@ -45,11 +46,13 @@ class Search(object):
     def init_app(self, app):
         self.app = app
         whoosh_name = app.config.get('WHOOSH_BASE')
+        whoosh_enable = app.config.get('WHOOSH_ENABLE', True)
         if whoosh_name is not None:
             self.whoosh_path = whoosh_name
         if not os.path.exists(self.whoosh_path):
             os.mkdir(whoosh_name)
-        # ix=index.create_in(whoosh_name,schema)
+        if whoosh_enable:
+            models_committed.connect(self._index_signal)
 
     def create_one_index(self,
                          instance,
@@ -118,7 +121,7 @@ class Search(object):
         return self._indexs[name]
 
     def _schema(self, model):
-        schema_fields = {'id': ID(stored=False, unique=True)}
+        schema_fields = {'id': ID(stored=True, unique=True)}
         searchable = set(model.__searchable__)
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
@@ -138,6 +141,18 @@ class Search(object):
                     stored=True, analyzer=self.analyzer, sortable=True)
 
         return Schema(**schema_fields)
+
+    def _index_signal(self, sender, changes):
+        for change in changes:
+            instance = change[0]
+            operation = change[1]
+            if hasattr(instance, '__searchable__'):
+                if operation == 'insert':
+                    self.create_one_index(instance)
+                elif operation == 'update':
+                    self.create_one_index(instance, update=True)
+                elif operation == 'delete':
+                    self.create_one_index(instance, delete=True)
 
     def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
         ix = self._index(m)
