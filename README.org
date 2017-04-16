@@ -1,17 +1,24 @@
-* flask-search
+* flask-msearch
   [[https://python.org][https://img.shields.io/badge/python-3.4-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
 
 ** Installation
+   To install flask-msearch:
+
+   #+BEGIN_SRC shell
+   pip install flask-msearch
+   #+END_SRC
+
+   Or alternatively, you can download the repository and install manually by doing:
    #+BEGIN_SRC sehll
-   git clone git@github.com:honmaple/flask-search.git
-   cd flask-search
+   git clone git@github.com:honmaple/flask-msearch.git
+   cd flask-msearch
    python setup.py install
    #+END_SRC
 
 ** Quickstart
    #+BEGIN_SRC python
-     from flask_search import Search
+     from flask_msearch import Search
      [...]
      search = Search()
      search.init_app(app)
@@ -38,7 +45,7 @@
 
 ** Usage
    #+BEGIN_SRC python
-     from flask_search import Search
+     from flask_msearch import Search
      [...]
      search = Search()
      search.init_app(app)
