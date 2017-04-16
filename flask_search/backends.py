@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期日 2017-4-16 11:53:18 (CST)
+# Last Update:星期日 2017-4-16 13:45:30 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -20,8 +20,7 @@ from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer, String,
                               Text)
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import ID as WHOOSH_ID
-from whoosh.fields import (BOOLEAN, DATETIME, IDLIST, KEYWORD, NGRAM,
+from whoosh.fields import (ID, BOOLEAN, DATETIME, IDLIST, KEYWORD, NGRAM,
                            NGRAMWORDS, NUMERIC, TEXT, Schema)
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
@@ -54,7 +53,7 @@ class Search(object):
 
     def create_one_index(self,
                          instance,
-                         writer,
+                         writer=None,
                          update=False,
                          delete=False,
                          commit=True):
@@ -78,6 +77,7 @@ class Search(object):
             writer.add_document(**attrs)
         if commit:
             writer.commit()
+        return instance
 
     def create_index(self, model='__all__', update=False, delete=False):
         if model == '__all__':
@@ -88,6 +88,7 @@ class Search(object):
         for instance in instances:
             self.create_one_index(instance, writer, update, delete, False)
         writer.commit()
+        return ix
 
     def create_all_index(self, update=False, delete=False):
         all_models = self.app.extensions[
@@ -105,25 +106,25 @@ class Search(object):
         '''
         name = model.__table__.name
         if name not in self._indexs:
-            ix_path = os.path.join(self.whoosh_path, model.__name__)
-            schema = self._schema(model)
+            ix_path = os.path.join(self.whoosh_path, name)
             if whoosh_index.exists_in(ix_path):
                 ix = whoosh_index.open_dir(ix_path)
             else:
                 if not os.path.exists(ix_path):
                     os.makedirs(ix_path)
+                schema = self._schema(model)
                 ix = whoosh_index.create_in(ix_path, schema)
             self._indexs[name] = ix
         return self._indexs[name]
 
     def _schema(self, model):
-        schema_fields = {'id': WHOOSH_ID(stored=True, unique=True)}
+        schema_fields = {'id': ID(stored=False, unique=True)}
         searchable = set(model.__searchable__)
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
             field_type = getattr(model, field).property.columns[0].type
             if field in primary_keys:
-                schema_fields[field] = WHOOSH_ID(stored=True, unique=True)
+                schema_fields[field] = ID(stored=True, unique=True)
             elif field_type in (DateTime, Date):
                 schema_fields[field] = DATETIME(stored=True, sortable=True)
             elif field_type == Integer:
@@ -135,6 +136,7 @@ class Search(object):
             else:
                 schema_fields[field] = TEXT(
                     stored=True, analyzer=self.analyzer, sortable=True)
+
         return Schema(**schema_fields)
 
     def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
@@ -145,5 +147,6 @@ class Search(object):
         parser = MultifieldParser(fields, ix.schema, group=group)
         results = ix.searcher().search(parser.parse(query), limit=limit)
         # if not results:
-        #     return self.filter(sqlalchemy.text('null'))
+        # return self.filter(sqlalchemy.text('null'))
+        # results = ix.searcher().search_page(parser.parse(query), 1, pagelen=10)
         return results
