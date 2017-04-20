@@ -32,7 +32,11 @@
      @app.route("/search")
      def w_search():
          keyword = request.args.get('keyword')
-         results = search.whoosh_search(Post,query=keyword,fields=['title'],limit=20)
+         results = search.whoosh_search(Post,keyword=keyword,fields=['title'],limit=20)
+         # or
+         results = Post.query.whoosh_search(keyword,fields=['title'],limit=20).filter(...)
+         # or
+         results = Post.query.filter(...).whoosh_search(keyword,fields=['title'],limit=20).filter(...)
          return ''
    #+END_SRC
 
@@ -50,6 +54,13 @@
      search = Search()
      search.init_app(app)
    #+END_SRC
+
+  if raise *sqlalchemy ValueError*,please pass db param to Search
+  #+BEGIN_SRC python
+  db = SQLalchemy()
+  search = Search(db=db)
+  #+END_SRC
+
 
 *** Create_index
    #+BEGIN_SRC sh
