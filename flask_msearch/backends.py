@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期日 2017-4-16 16:56:24 (CST)
+# Last Update:星期四 2017-4-20 16:33:42 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -14,8 +14,9 @@ import logging
 import os
 import os.path
 import sys
+import sqlalchemy
 
-from flask_sqlalchemy import models_committed
+from flask_sqlalchemy import models_committed, BaseQuery
 from sqlalchemy.inspection import inspect
 from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer, String,
                               Text)
@@ -35,8 +36,31 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
 
 
+def _query_class(q, search):
+    class Query(q):
+        def whoosh_search(self, keyword, fields=None, limit=None, or_=False):
+            model = self._mapper_zero().class_
+            results = search.whoosh_search(model, keyword, fields, limit, or_)
+            if not results:
+                return self.filter(sqlalchemy.text('null'))
+            result_set = set()
+            for i in results:
+                result_set.add(i[DEFAULT_PRIMARY_KEY])
+            return self.filter(
+                getattr(model, DEFAULT_PRIMARY_KEY).in_(result_set))
+
+    return Query
+
+
 class Search(object):
-    def __init__(self, app=None, analyzer=None):
+    def __init__(self, app=None, db=None, analyzer=None):
+        """
+        You can custom analyzer by::
+
+            from jieba.analyse import ChineseAnalyzer
+            search = Search(analyzer = ChineseAnalyzer)
+        """
+        self.db = db
         self.whoosh_path = DEFAULT_WHOOSH_INDEX_NAME
         self._indexs = {}
         self.analyzer = analyzer or DEFAULT_ANALYZER
@@ -45,14 +69,18 @@ class Search(object):
 
     def init_app(self, app):
         self.app = app
+        if not self.db:
+            self.db = self.app.extensions['sqlalchemy'].db
         whoosh_name = app.config.get('WHOOSH_BASE')
         whoosh_enable = app.config.get('WHOOSH_ENABLE', True)
         if whoosh_name is not None:
             self.whoosh_path = whoosh_name
         if not os.path.exists(self.whoosh_path):
-            os.mkdir(whoosh_name)
+            os.mkdir(self.whoosh_path)
         if whoosh_enable:
             models_committed.connect(self._index_signal)
+        self.db.Model.query_class = _query_class(self.db.Model.query_class,
+                                                 self)
 
     def create_one_index(self,
                          instance,
@@ -60,6 +88,15 @@ class Search(object):
                          update=False,
                          delete=False,
                          commit=True):
+        '''
+        :param instance: sqlalchemy instance object
+        :param writer: whoosh writer,default `None`
+        :param update: when update is True,use `update_document`,default `False`
+        :param delete: when delete is True,use `delete_by_term` with id(primary key),default `False`
+        :param commit: when commit is True,writer would use writer.commit()
+        :raise: ValueError:when both update is True and delete is True
+        :return: instance
+        '''
         if update and delete:
             raise ValueError("update and delete can't work togther")
         ix = self._index(instance.__class__)
@@ -94,8 +131,7 @@ class Search(object):
         return ix
 
     def create_all_index(self, update=False, delete=False):
-        all_models = self.app.extensions[
-            'sqlalchemy'].db.Model._decl_class_registry.values()
+        all_models = self.db.Model._decl_class_registry.values()
         models = [i for i in all_models if hasattr(i, '__searchable__')]
         ixs = []
         for m in models:
@@ -115,7 +151,10 @@ class Search(object):
             else:
                 if not os.path.exists(ix_path):
                     os.makedirs(ix_path)
-                schema = self._schema(model)
+                if hasattr(model, '__whoosh_schema__'):
+                    schema = getattr(model, '__whoosh_schema__')
+                else:
+                    schema = self._schema(model)
                 ix = whoosh_index.create_in(ix_path, schema)
             self._indexs[name] = ix
         return self._indexs[name]
@@ -123,6 +162,8 @@ class Search(object):
     def _schema(self, model):
         schema_fields = {'id': ID(stored=True, unique=True)}
         searchable = set(model.__searchable__)
+        analyzer = getattr(model, '__whoosh_analyzer__') if hasattr(
+            model, '__whoosh_analyzer__') else self.analyzer
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
             field_type = getattr(model, field).property.columns[0].type
@@ -138,7 +179,7 @@ class Search(object):
                 schema_fields[field] = BOOLEAN(stored=True)
             else:
                 schema_fields[field] = TEXT(
-                    stored=True, analyzer=self.analyzer, sortable=True)
+                    stored=True, analyzer=analyzer, sortable=True)
 
         return Schema(**schema_fields)
 
@@ -154,14 +195,14 @@ class Search(object):
                 elif operation == 'delete':
                     self.create_one_index(instance, delete=True)
 
-    def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
+    def whoosh_search(self, m, keyword, fields=None, limit=None, or_=False):
+        '''
+        set limit make search faster
+        '''
         ix = self._index(m)
         if fields is None:
             fields = ix.schema.names()
         group = OrGroup if or_ else AndGroup
         parser = MultifieldParser(fields, ix.schema, group=group)
-        results = ix.searcher().search(parser.parse(query), limit=limit)
-        # if not results:
-        # return self.filter(sqlalchemy.text('null'))
-        # results = ix.searcher().search_page(parser.parse(query), 1, pagelen=10)
+        results = ix.searcher().search(parser.parse(keyword), limit=limit)
         return results
