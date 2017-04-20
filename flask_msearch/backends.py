@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期四 2017-4-20 14:59:56 (CST)
+# Last Update:星期四 2017-4-20 16:33:42 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -79,8 +79,8 @@ class Search(object):
             os.mkdir(self.whoosh_path)
         if whoosh_enable:
             models_committed.connect(self._index_signal)
-            self.db.Model.query_class = _query_class(self.db.Model.query_class,
-                                                     self)
+        self.db.Model.query_class = _query_class(self.db.Model.query_class,
+                                                 self)
 
     def create_one_index(self,
                          instance,
@@ -195,7 +195,7 @@ class Search(object):
                 elif operation == 'delete':
                     self.create_one_index(instance, delete=True)
 
-    def whoosh_search(self, m, keyword, fields=None, limit=None, or_=True):
+    def whoosh_search(self, m, keyword, fields=None, limit=None, or_=False):
         '''
         set limit make search faster
         '''
