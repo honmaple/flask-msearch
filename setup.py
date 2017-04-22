@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update:星期日 2017-4-16 17:34:17 (CST)
+# Last Update:星期四 2017-4-20 18:16:26 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,12 +15,12 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.1.0',
+    version='0.1.2',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',
     author_email='xiyang0807@gmail.com',
-    description='full text search for flask',
+    description='full text search with whoosh for flask',
     long_description='Please visit https://github.com/honmaple/flask-msearch',
     packages=['flask_msearch'],
     zip_safe=False,

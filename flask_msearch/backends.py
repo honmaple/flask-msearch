@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期四 2017-4-20 16:33:42 (CST)
+# Last Update:星期四 2017-4-20 18:15:41 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -34,6 +34,9 @@ log_console = logging.StreamHandler(sys.stderr)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
+
+if sys.version_info[0] < 3:
+    str = unicode
 
 
 def _query_class(q, search):
