@@ -6,8 +6,8 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update:星期日 2017-4-16 11:46:39 (CST)
+# Last Update:星期四 2017-5-4 22:20:44 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from .backends import Search
+from .whoosh_backends import Search
