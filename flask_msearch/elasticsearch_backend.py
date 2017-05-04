@@ -6,16 +6,16 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-22 12:13:47 (CST)
-# Last Update:星期四 2017-5-4 22:33:17 (CST)
+# Last Update:星期四 2017-5-4 22:47:36 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from sqlalchemy import types
+from sqlalchemy import types, inspect
 from elasticsearch import Elasticsearch
 from .backends import BaseBackend, logger
 
 
-class ElasticSearchBackend(BaseBackend):
+class ElasticSearch(BaseBackend):
     def create_one_index(self,
                          instance,
                          writer=None,
