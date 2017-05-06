@@ -6,8 +6,25 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update:星期日 2017-4-16 11:46:39 (CST)
+# Last Update:星期六 2017-5-6 13:38:41 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from .backends import Search
+from .backends import BaseBackend
+
+
+class Search(BaseBackend):
+    def init_app(self, app):
+        app.config.setdefault('MSEARCH_BACKEND', 'whoosh')
+        msearch_backend = app.config['MSEARCH_BACKEND']
+        if msearch_backend == 'simple':
+            from .simple_backend import SimpleSearch
+            self._backend = SimpleSearch(app, self.db, self.analyzer)
+        elif msearch_backend == 'whoosh':
+            from .whoosh_backend import WhooshSearch
+            self._backend = WhooshSearch(app, self.db, self.analyzer)
+        else:
+            raise ValueError('backends {} not exists.'.format(msearch_backend))
+
+    def __getattr__(self, name):
+        return getattr(self._backend, name)

@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update:星期四 2017-4-20 18:16:26 (CST)
+# Last Update:星期六 2017-5-6 13:46:30 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,7 +15,7 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.1.2',
+    version='0.1.3',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',

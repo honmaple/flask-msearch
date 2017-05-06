@@ -1,5 +1,5 @@
 * flask-msearch
-  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.1-brightgreen.svg]]
+  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.3-brightgreen.svg]]
   [[https://python.org][https://img.shields.io/badge/python-2/3-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
 
@@ -33,19 +33,20 @@
      @app.route("/search")
      def w_search():
          keyword = request.args.get('keyword')
-         results = search.whoosh_search(Post,keyword=keyword,fields=['title'],limit=20)
+         results = Post.query.msearch(keyword,fields=['title'],limit=20).filter(...)
          # or
-         results = Post.query.whoosh_search(keyword,fields=['title'],limit=20).filter(...)
-         # or
-         results = Post.query.filter(...).whoosh_search(keyword,fields=['title'],limit=20).filter(...)
+         results = Post.query.filter(...).msearch(keyword,fields=['title'],limit=20).filter(...)
          return ''
    #+END_SRC
 
 ** Config
 
    #+BEGIN_SRC python
-   WHOOSH_BASE = 'whoosh_index'
-   WHOOSH_ENABLE = True
+   MSEARCH_INDEX_NAME = 'whoosh_index'
+   # simple,whoosh
+   MSEARCH_BACKEND = 'whoosh'
+   # auto create or update index
+   MSEARCH_ENABLE = True
    #+END_SRC
 
 ** Usage
@@ -64,16 +65,19 @@
 
 
 *** Create_index
+   *only support 'whoosh' backend*
    #+BEGIN_SRC sh
    search.create_index()
    #+END_SRC
 
 *** Update_index
+   *only support 'whoosh' backend*
     #+BEGIN_SRC python
     search.create_index(update=True)
     #+END_SRC
 
 *** Delete_index
+   *only support 'whoosh' backend*
     #+BEGIN_SRC python
     search.create_index(delete=True)
     #+END_SRC
