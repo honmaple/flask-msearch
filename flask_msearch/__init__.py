@@ -6,13 +6,10 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update:星期四 2017-5-4 22:48:58 (CST)
+# Last Update:星期六 2017-5-6 11:17:17 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from .whoosh_backend import WhooshSearch
-from .simple_backend import SimpleSearch
-from .elasticsearch_backend import ElasticSearch
 from .backends import BaseBackend
 
 
@@ -21,10 +18,16 @@ class Search(BaseBackend):
         app.config.setdefault('MSEARCH_BACKEND', 'whoosh')
         msearch_backend = app.config['MSEARCH_BACKEND']
         if msearch_backend == 'simple':
-            self = SimpleSearch(app, self.db, self.analyzer)
+            from .simple_backend import SimpleSearch
+            self._backend = SimpleSearch(app, self.db, self.analyzer)
         elif msearch_backend == 'elasticsearch':
-            self = ElasticSearch(app, self.db, self.analyzer)
+            from .elasticsearch_backend import ElasticSearch
+            self._backend = ElasticSearch(app, self.db, self.analyzer)
         elif msearch_backend == 'whoosh':
-            self = WhooshSearch(app, self.db, self.analyzer)
+            from .whoosh_backend import WhooshSearch
+            self._backend = WhooshSearch(app, self.db, self.analyzer)
         else:
             raise ValueError('backends {} not exists.'.format(msearch_backend))
+
+    def __getattr__(self, name):
+        return getattr(self._backend, name)

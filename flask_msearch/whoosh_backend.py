@@ -6,25 +6,25 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期四 2017-5-4 22:32:58 (CST)
+# Last Update:星期六 2017-5-6 13:3:31 (CST)
 #          By:
 # Description:
 # **************************************************************************
-import logging
 import os
 import os.path
 import sys
-import sqlalchemy
 
-from flask_sqlalchemy import models_committed, BaseQuery
+import sqlalchemy
+from flask_sqlalchemy import models_committed
 from sqlalchemy.inspection import inspect
 from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer, String,
                               Text)
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import (ID, BOOLEAN, DATETIME, IDLIST, KEYWORD, NGRAM,
+from whoosh.fields import (BOOLEAN, DATETIME, ID, IDLIST, KEYWORD, NGRAM,
                            NGRAMWORDS, NUMERIC, TEXT, Schema)
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
+
 from .backends import BaseBackend, logger
 
 DEFAULT_WHOOSH_INDEX_NAME = 'whoosh_index'
@@ -36,29 +36,19 @@ if sys.version_info[0] < 3:
 
 
 class WhooshSearch(BaseBackend):
-    def __init__(self, app=None, db=None, analyzer=None):
-        """
-        You can custom analyzer by::
-
-            from jieba.analyse import ChineseAnalyzer
-            search = Search(analyzer = ChineseAnalyzer)
-        """
-        super(WhooshSearch, self).__init__(app, db, analyzer)
-        self.whoosh_path = DEFAULT_WHOOSH_INDEX_NAME
-        self._indexs = {}
-        self.analyzer = analyzer or DEFAULT_ANALYZER
-
     def init_app(self, app):
-        super(WhooshSearch, self).init_app(app)
+        self._indexs = {}
         self.whoosh_path = DEFAULT_WHOOSH_INDEX_NAME
-        whoosh_name = app.config.get('WHOOSH_BASE')
-        whoosh_enable = app.config.get('WHOOSH_ENABLE', True)
-        if whoosh_name is not None:
-            self.whoosh_path = whoosh_name
+        if self.analyzer is None:
+            self.analyzer = DEFAULT_ANALYZER
+        whoosh_path = app.config.get('MSEARCH_INDEX_NAME')
+        if whoosh_path is not None:
+            self.whoosh_path = whoosh_path
         if not os.path.exists(self.whoosh_path):
             os.mkdir(self.whoosh_path)
-        if whoosh_enable:
+        if app.config.get('MSEARCH_ENABLE', True):
             models_committed.connect(self._index_signal)
+        super(WhooshSearch, self).init_app(app)
 
     def create_one_index(self,
                          instance,
@@ -173,7 +163,7 @@ class WhooshSearch(BaseBackend):
                 elif operation == 'delete':
                     self.create_one_index(instance, delete=True)
 
-    def whoosh_search(self, m, keyword, fields=None, limit=None, or_=False):
+    def msearch(self, m, query, fields=None, limit=None, or_=False):
         '''
         set limit make search faster
         '''
@@ -182,21 +172,16 @@ class WhooshSearch(BaseBackend):
             fields = ix.schema.names()
         group = OrGroup if or_ else AndGroup
         parser = MultifieldParser(fields, ix.schema, group=group)
-        results = ix.searcher().search(parser.parse(keyword), limit=limit)
+        results = ix.searcher().search(parser.parse(query), limit=limit)
         return results
 
     def _query_class(self, q):
         _self = self
 
         class Query(q):
-            def whoosh_search(self,
-                              keyword,
-                              fields=None,
-                              limit=None,
-                              or_=False):
+            def msearch(self, query, fields=None, limit=None, or_=False):
                 model = self._mapper_zero().class_
-                results = _self.whoosh_search(model, keyword, fields, limit,
-                                              or_)
+                results = _self.msearch(model, query, fields, limit, or_)
                 if not results:
                     return self.filter(sqlalchemy.text('null'))
                 result_set = set()

@@ -33,19 +33,20 @@
      @app.route("/search")
      def w_search():
          keyword = request.args.get('keyword')
-         results = search.whoosh_search(Post,keyword=keyword,fields=['title'],limit=20)
+         results = Post.query.msearch(keyword,fields=['title'],limit=20).filter(...)
          # or
-         results = Post.query.whoosh_search(keyword,fields=['title'],limit=20).filter(...)
-         # or
-         results = Post.query.filter(...).whoosh_search(keyword,fields=['title'],limit=20).filter(...)
+         results = Post.query.filter(...).msearch(keyword,fields=['title'],limit=20).filter(...)
          return ''
    #+END_SRC
 
 ** Config
 
    #+BEGIN_SRC python
-   WHOOSH_BASE = 'whoosh_index'
-   WHOOSH_ENABLE = True
+   MSEARCH_INDEX_NAME = 'whoosh_index'
+   # simple,whoosh
+   MSEARCH_BACKEND = 'whoosh'
+   # auto update index
+   MSEARCH_ENABLE = True
    #+END_SRC
 
 ** Usage

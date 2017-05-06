@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期四 2017-5-4 22:32:58 (CST)
+# Last Update:星期六 2017-5-6 12:56:36 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -43,11 +43,11 @@ class BaseBackend(object):
         _self = self
 
         class Query(q):
-            def msearch(self, keyword, fields=None, limit=None, or_=False):
+            def msearch(self, query, fields=None, limit=None, or_=False):
                 model = self._mapper_zero().class_
-                return _self.msearch(model, keyword, fields, limit, or_)
+                return _self.msearch(model, query, fields, limit, or_)
 
         return Query
 
-    def msearch(self, m, keyword, fields=None, limit=None, or_=False):
+    def msearch(self, m, query, fields=None, limit=None, or_=False):
         raise NotImplementedError

@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-22 10:23:24 (CST)
-# Last Update:星期四 2017-5-4 22:32:58 (CST)
+# Last Update:星期六 2017-5-6 12:56:29 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -16,17 +16,17 @@ from .backends import BaseBackend
 
 
 class SimpleSearch(BaseBackend):
-    def msearch(self, m, keyword, fields=None, limit=None, or_=False):
+    def msearch(self, m, query, fields=None, limit=None, or_=False):
         if fields is None:
             fields = m.__searchable__
         f = []
         if self.analyzer is not None:
-            keywords = self.analyzer(keyword)
+            keywords = self.analyzer(query)
         else:
-            keywords = keyword.split(',')
+            keywords = query.split(' ')
         for field in fields:
             query = [getattr(m, field).contains(keyword)
-                     for keyword in keywords]
+                     for keyword in keywords if keyword]
             if not or_:
                 f.append(_and(*query))
             else:

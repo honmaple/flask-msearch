@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-20 10:45:25 (CST)
-# Last Update:星期四 2017-4-20 18:15:53 (CST)
+# Last Update:星期六 2017-5-6 11:17:56 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -20,10 +20,11 @@ from flask_msearch import Search
 class TestSearch(TestCase):
     def setUp(self):
         class config(object):
-            WHOOSH_BASE = mkdtemp()
+            WHOOSH_PATH = mkdtemp()
             SQLALCHEMY_DATABASE_URI = 'sqlite://'
             DEBUG = True
             TESTING = True
+            # MSEARCH_BACKEND = 'simple'
 
         app = Flask(__name__)
         app.config.from_object(config)
@@ -89,38 +90,36 @@ class TestSearch(TestCase):
             post5 = self.Post(title=title5, content='content3')
             post5.save()
 
-            results = self.Post.query.whoosh_search('book').all()
+            results = self.Post.query.msearch('book').all()
             self.assertEqual(len(results), 3)
             self.assertEqual(results[0].title, title2)
             self.assertEqual(results[1].title, title3)
 
             # test limit
-            results = self.Post.query.whoosh_search('book', limit=2).all()
+            results = self.Post.query.msearch('book', limit=2).all()
             self.assertEqual(len(results), 2)
 
             # test and or
-            results = self.Post.query.whoosh_search(
-                'book movie', or_=False).all()
+            results = self.Post.query.msearch('book movie', or_=False).all()
             self.assertEqual(len(results), 0)
 
-            results = self.Post.query.whoosh_search(
-                'book movie', or_=True).all()
+            results = self.Post.query.msearch('book movie', or_=True).all()
             self.assertEqual(len(results), 4)
 
             # test delete
             post2.delete()
 
-            results = self.Post.query.whoosh_search('book').all()
+            results = self.Post.query.msearch('book').all()
             self.assertEqual(len(results), 2)
 
             # test update
             post3.title = 'write a novel'
             post3.save()
 
-            results = self.Post.query.whoosh_search('book').all()
+            results = self.Post.query.msearch('book').all()
             self.assertEqual(len(results), 1)
 
-            results = self.Post.query.whoosh_search('movie').all()
+            results = self.Post.query.msearch('movie').all()
             self.assertEqual(len(results), 1)
 
             # test fields
@@ -134,15 +133,13 @@ class TestSearch(TestCase):
             post2 = self.Post(title=title2, content=content2)
             post2.save()
 
-            results = self.Post.query.whoosh_search('user').all()
+            results = self.Post.query.msearch('user').all()
             self.assertEqual(len(results), 2)
 
-            results = self.Post.query.whoosh_search(
-                'user', fields=['title']).all()
+            results = self.Post.query.msearch('user', fields=['title']).all()
             self.assertEqual(len(results), 2)
 
-            results = self.Post.query.whoosh_search(
-                'user', fields=['content']).all()
+            results = self.Post.query.msearch('user', fields=['content']).all()
             self.assertEqual(len(results), 1)
 
 
