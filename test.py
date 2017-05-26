@@ -189,7 +189,95 @@ class TestSearchHybridProp(TestMixin, SearchTestBase):
             self.assertEqual(len(results), 2)
 
 
+class TestSearchRelation(SearchTestBase):
+    def setUp(self):
+        super(TestSearchRelation, self).setUp()
+
+        class User(db.Model, ModelSaveMixin):
+            __tablename__ = 'users'
+
+            id = db.Column(db.Integer, primary_key=True)
+            username = db.Column(db.String(49))
+
+            def __repr__(self):
+                return '<User:{}>'.format(self.username)
+
+        class Post(db.Model, ModelSaveMixin):
+            __tablename__ = 'posts'
+            __searchable__ = ['title', 'user.username', 'replies.content']
+
+            id = db.Column(db.Integer, primary_key=True)
+            title = db.Column(db.String(49))
+            content = db.Column(db.Text)
+
+            user_id = db.Column(
+                db.Integer, db.ForeignKey(
+                    'users.id', ondelete="CASCADE"))
+            user = db.relationship(
+                User,
+                backref=db.backref(
+                    'topics', cascade='all,delete-orphan', lazy='dynamic'),
+                lazy='joined',
+                uselist=False)
+
+            def __repr__(self):
+                return '<Post:{}>'.format(self.title)
+
+        class Reply(db.Model, ModelSaveMixin):
+            __tablename__ = 'replies'
+
+            id = db.Column(db.Integer, primary_key=True)
+            content = db.Column(db.Text)
+
+            post_id = db.Column(
+                db.Integer, db.ForeignKey(
+                    'posts.id', ondelete="CASCADE"))
+            post = db.relationship(
+                Post,
+                backref=db.backref(
+                    'replies', cascade='all,delete-orphan', lazy='dynamic'),
+                lazy='joined',
+                uselist=False)
+
+            def __repr__(self):
+                return '<Reply:{}>'.format(self.title)
+
+        self.Post = Post
+        self.Reply = Reply
+        self.User = User
+        self.init_data()
+
+    def init_data(self):
+        if self.Post is None:
+            self.fail('Post class not defined')
+        with self.app.test_request_context():
+            db.create_all()
+            for (i, title) in enumerate(titles, 1):
+                user = self.User(username='username{}'.format(i))
+                user.save()
+                post = self.Post(
+                    title=title, content='content%d' % i, user=user)
+                post.save()
+
+    def test_field_search(self):
+        with self.app.test_request_context():
+            title1 = 'add one user'
+            content1 = 'add one user content 1'
+            title2 = 'add two user'
+            content2 = 'add two content 2'
+            post1 = self.Post(title=title1, content=content1)
+            post1.save()
+
+            post2 = self.Post(title=title2, content=content2)
+            post2.save()
+
+            results = self.Post.query.msearch('user').all()
+            self.assertEqual(len(results), 2)
+
+
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromNames(
-        ['test.TestSearch', 'test.TestSearchHybridProp'])
+    # test_list = ['test.TestSearch', 'test.TestSearchHybridProp',
+    #              'test.TestSearchRelation']
+    test_list = ['test.TestSearchRelation']
+    suite = unittest.TestLoader().loadTestsFromNames(test_list)
     unittest.TextTestRunner(verbosity=1).run(suite)

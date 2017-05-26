@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期六 2017-5-27 0:11:25 (CST)
+# Last Update:星期六 2017-5-27 1:14:32 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -24,7 +24,7 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import (BOOLEAN, DATETIME, ID, NUMERIC, TEXT, Schema)
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
-from .backends import BaseBackend, logger
+from .backends import BaseBackend, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'whoosh_index'
 DEFAULT_ANALYZER = StemmingAnalyzer()
@@ -71,8 +71,11 @@ class WhooshSearch(BaseBackend):
         if not writer:
             writer = ix.writer()
         attrs = {'id': str(instance.id)}
-        for i in searchable:
-            attrs[i] = str(getattr(instance, i))
+        for field in searchable:
+            if '.' in field:
+                attrs[field] = relation_column(instance, field.split('.'))
+            else:
+                attrs[field] = str(getattr(instance, field))
         if delete:
             logger.debug('deleting index: {}'.format(instance))
             writer.delete_by_term('id', str(instance.id))
@@ -133,7 +136,13 @@ class WhooshSearch(BaseBackend):
             model, '__whoosh_analyzer__') else self.analyzer
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
-            field_attr = getattr(model, field)
+            if '.' in field:
+                fields = field.split('.')
+                field_attr = getattr(
+                    getattr(model, fields[0]).property.mapper.class_,
+                    fields[1])
+            else:
+                field_attr = getattr(model, field)
             if hasattr(field_attr, 'descriptor') and isinstance(
                     field_attr.descriptor, hybrid_property):
                 schema_fields[field] = TEXT(

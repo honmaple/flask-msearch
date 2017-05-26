@@ -6,17 +6,34 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期六 2017-5-6 12:56:36 (CST)
+# Last Update:星期六 2017-5-27 1:45:37 (CST)
 #          By:
 # Description:
 # **************************************************************************
 import logging
 import sys
+from sqlalchemy.orm.interfaces import (ONETOMANY, MANYTOMANY, MANYTOONE)
 
 log_console = logging.StreamHandler(sys.stderr)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
+
+
+def relation_column(instance, fields):
+    '''
+    such as: user.username
+    such as: replies.content
+    '''
+    relation = getattr(instance.__class__, fields[0]).property
+    _field = getattr(instance, fields[0])
+    if relation.direction in [ONETOMANY, MANYTOMANY] and relation.uselist:
+        if relation.lazy == 'dynamic':
+            _field = _field.all()
+        return ','.join([getattr(i, fields[1]) for i in _field])
+    if relation.lazy == 'dynamic':
+        _field = _field.first()
+    return getattr(_field, fields[1]) if _field else ''
 
 
 class BaseBackend(object):
