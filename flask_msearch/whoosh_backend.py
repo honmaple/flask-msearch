@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期六 2017-5-6 13:44:54 (CST)
+# Last Update:星期六 2017-5-27 0:11:25 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -35,7 +35,6 @@ if sys.version_info[0] < 3:
 
 
 class WhooshSearch(BaseBackend):
-
     def init_app(self, app):
         self._indexs = {}
         self.whoosh_path = DEFAULT_WHOOSH_INDEX_NAME
@@ -135,8 +134,10 @@ class WhooshSearch(BaseBackend):
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
             field_attr = getattr(model, field)
-            if hasattr(field_attr, 'descriptor') and isinstance(field_attr.descriptor, hybrid_property):
-                schema_fields[field] = TEXT(stored=True, analyzer=analyzer, sortable=False)
+            if hasattr(field_attr, 'descriptor') and isinstance(
+                    field_attr.descriptor, hybrid_property):
+                schema_fields[field] = TEXT(
+                    stored=True, analyzer=analyzer, sortable=False)
             else:
                 field_type = field_attr.property.columns[0].type
                 if field in primary_keys:

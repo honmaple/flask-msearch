@@ -7,33 +7,18 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_msearch import Search
 from sqlalchemy.ext.hybrid import hybrid_property
 
-
 # do not clutter output with log entries
 logging.disable(logging.CRITICAL)
 
 db = None
 
 titles = [
-    'watch a movie',
-    'read a book',
-    'write a book',
-    'listen to a music',
+    'watch a movie', 'read a book', 'write a book', 'listen to a music',
     'I have a book'
 ]
 
 
-class TestConfig(object):
-    SQLALCHEMY_TRACK_MODIFICATIONS = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite://'
-    DEBUG = True
-    TESTING = True
-
-    def __init__(self):
-        self.MSEARCH_INDEX_NAME = mkdtemp()
-
-
 class ModelSaveMixin(object):
-
     def save(self):
         if not self.id:
             db.session.add(self)
@@ -47,8 +32,15 @@ class ModelSaveMixin(object):
 
 
 class SearchTestBase(TestCase):
-
     def setUp(self):
+        class TestConfig(object):
+            SQLALCHEMY_TRACK_MODIFICATIONS = True
+            SQLALCHEMY_DATABASE_URI = 'sqlite://'
+            DEBUG = True
+            TESTING = True
+            MSEARCH_INDEX_NAME = mkdtemp()
+            # MSEARCH_BACKEND = 'simple'
+
         self.app = Flask(__name__)
         self.app.config.from_object(TestConfig())
         # we need this instance to be:
@@ -75,6 +67,8 @@ class SearchTestBase(TestCase):
             db.drop_all()
             db.metadata.clear()
 
+
+class TestMixin(object):
     def test_basic_search(self):
         with self.app.test_request_context():
             results = self.Post.query.msearch('book').all()
@@ -111,8 +105,7 @@ class SearchTestBase(TestCase):
             self.assertEqual(len(results), 2)
 
 
-class TestSearch(SearchTestBase):
-
+class TestSearch(TestMixin, SearchTestBase):
     def setUp(self):
         super(TestSearch, self).setUp()
 
@@ -152,8 +145,7 @@ class TestSearch(SearchTestBase):
             self.assertEqual(len(results), 1)
 
 
-class TestSearchHybridProp(SearchTestBase):
-
+class TestSearchHybridProp(TestMixin, SearchTestBase):
     def setUp(self):
         super(TestSearchHybridProp, self).setUp()
 
@@ -167,14 +159,13 @@ class TestSearchHybridProp(SearchTestBase):
 
             @hybrid_property
             def fts_text(self):
-                return ' '.join([
-                    self.title,
-                    self.content
-                ])
+                return ' '.join([self.title, self.content])
 
             @fts_text.expression
             def fts_text(cls):
-                return db.func.concat(cls.title, ' ', cls.content)
+                # sqlite don't support concat
+                # return db.func.concat(cls.title, ' ', cls.content)
+                return cls.title.op('||')(' ').op('||')(cls.content)
 
             def __repr__(self):
                 return '<Post:{}>'.format(self.title)
@@ -199,5 +190,6 @@ class TestSearchHybridProp(SearchTestBase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromNames(['test.TestSearch', 'test.TestSearchHybridProp'])
+    suite = unittest.TestLoader().loadTestsFromNames(
+        ['test.TestSearch', 'test.TestSearchHybridProp'])
     unittest.TextTestRunner(verbosity=1).run(suite)
