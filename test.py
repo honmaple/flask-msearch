@@ -1,128 +1,137 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# **************************************************************************
-# Copyright © 2017 jianglin
-# File Name: test.py
-# Author: jianglin
-# Email: xiyang0807@gmail.com
-# Created: 2017-04-20 10:45:25 (CST)
-# Last Update:星期六 2017-5-6 13:47:31 (CST)
-#          By:
-# Description:
-# **************************************************************************
-from unittest import TestCase, main
+import logging
+import unittest
+from unittest import TestCase
 from tempfile import mkdtemp
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_msearch import Search
+from sqlalchemy.ext.hybrid import hybrid_property
 
 
-class TestSearch(TestCase):
+# do not clutter output with log entries
+logging.disable(logging.CRITICAL)
+
+db = None
+
+titles = [
+    'watch a movie',
+    'read a book',
+    'write a book',
+    'listen to a music',
+    'I have a book'
+]
+
+
+class TestConfig(object):
+    SQLALCHEMY_TRACK_MODIFICATIONS = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite://'
+    DEBUG = True
+    TESTING = True
+
+    def __init__(self):
+        self.MSEARCH_INDEX_NAME = mkdtemp()
+
+
+class ModelSaveMixin(object):
+
+    def save(self):
+        if not self.id:
+            db.session.add(self)
+            db.session.commit()
+        else:
+            db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+
+class SearchTestBase(TestCase):
+
     def setUp(self):
-        class config(object):
-            MSEARCH_INDEX_NAME = mkdtemp()
-            SQLALCHEMY_DATABASE_URI = 'sqlite://'
-            DEBUG = True
-            TESTING = True
-            # MSEARCH_BACKEND = 'simple'
-
-        app = Flask(__name__)
-        app.config.from_object(config)
+        self.app = Flask(__name__)
+        self.app.config.from_object(TestConfig())
+        # we need this instance to be:
+        #  a) global for all objects we share and
+        #  b) fresh for every test run
+        global db
         db = SQLAlchemy()
-        search = Search(db=db)
+        self.search = Search(db=db)
+        db.init_app(self.app)
+        self.search.init_app(self.app)
+        self.Post = None
 
-        class Post(db.Model):
-            __tablename__ = 'posts'
+    def init_data(self):
+        if self.Post is None:
+            self.fail('Post class not defined')
+        with self.app.test_request_context():
+            db.create_all()
+            for (i, title) in enumerate(titles, 1):
+                post = self.Post(title=title, content='content%d' % i)
+                post.save()
+
+    def tearDown(self):
+        with self.app.test_request_context():
+            db.drop_all()
+            db.metadata.clear()
+
+    def test_basic_search(self):
+        with self.app.test_request_context():
+            results = self.Post.query.msearch('book').all()
+            self.assertEqual(len(results), 3)
+            self.assertEqual(results[0].title, titles[1])
+            self.assertEqual(results[1].title, titles[2])
+            results = self.Post.query.msearch('movie').all()
+            self.assertEqual(len(results), 1)
+
+    def test_search_limit(self):
+        with self.app.test_request_context():
+            results = self.Post.query.msearch('book', limit=2).all()
+            self.assertEqual(len(results), 2)
+
+    def test_boolean_operators(self):
+        with self.app.test_request_context():
+            results = self.Post.query.msearch('book movie', or_=False).all()
+            self.assertEqual(len(results), 0)
+            results = self.Post.query.msearch('book movie', or_=True).all()
+            self.assertEqual(len(results), 4)
+
+    def test_delete(self):
+        with self.app.test_request_context():
+            self.Post.query.filter_by(title='read a book').delete()
+            results = self.Post.query.msearch('book').all()
+            self.assertEqual(len(results), 2)
+
+    def test_update(self):
+        with self.app.test_request_context():
+            post = self.Post.query.filter_by(title='write a book').one()
+            post.title = 'write a novel'
+            post.save()
+            results = self.Post.query.msearch('book').all()
+            self.assertEqual(len(results), 2)
+
+
+class TestSearch(SearchTestBase):
+
+    def setUp(self):
+        super(TestSearch, self).setUp()
+
+        class Post(db.Model, ModelSaveMixin):
+            __tablename__ = 'basic_posts'
             __searchable__ = ['title', 'content']
 
             id = db.Column(db.Integer, primary_key=True)
             title = db.Column(db.String(49))
             content = db.Column(db.Text)
 
-            def save(self):
-                if not self.id:
-                    db.session.add(self)
-                    db.session.commit()
-                else:
-                    db.session.commit()
-
-            def delete(self):
-                db.session.delete(self)
-                db.session.commit()
-
             def __repr__(self):
                 return '<Post:{}>'.format(self.title)
 
-        db.init_app(app)
-        search.init_app(app)
-        with app.test_request_context():
-            db.create_all()
-
         self.Post = Post
-        self.db = db
-        self.app = app
-        self.search = search
+        self.init_data()
 
-    def tearDown(self):
+    def test_field_search(self):
         with self.app.test_request_context():
-            self.db.drop_all()
-
-    def test_search(self):
-        with self.app.test_request_context():
-            title1 = 'watch a movie'
-            title2 = 'read a book'
-            title3 = 'write a book'
-            title4 = 'listen to a music'
-            title5 = 'I have a book'
-            post1 = self.Post(title=title1, content='content1')
-            post1.save()
-            self.assertEqual(self.Post.query.all(), [post1])
-
-            post2 = self.Post(title=title2, content='content2')
-            post2.save()
-
-            post3 = self.Post(title=title3, content='content3')
-            post3.save()
-
-            post4 = self.Post(title=title4, content='content3')
-            post4.save()
-
-            post5 = self.Post(title=title5, content='content3')
-            post5.save()
-
-            results = self.Post.query.msearch('book').all()
-            self.assertEqual(len(results), 3)
-            self.assertEqual(results[0].title, title2)
-            self.assertEqual(results[1].title, title3)
-
-            # test limit
-            results = self.Post.query.msearch('book', limit=2).all()
-            self.assertEqual(len(results), 2)
-
-            # test and or
-            results = self.Post.query.msearch('book movie', or_=False).all()
-            self.assertEqual(len(results), 0)
-
-            results = self.Post.query.msearch('book movie', or_=True).all()
-            self.assertEqual(len(results), 4)
-
-            # test delete
-            post2.delete()
-
-            results = self.Post.query.msearch('book').all()
-            self.assertEqual(len(results), 2)
-
-            # test update
-            post3.title = 'write a novel'
-            post3.save()
-
-            results = self.Post.query.msearch('book').all()
-            self.assertEqual(len(results), 1)
-
-            results = self.Post.query.msearch('movie').all()
-            self.assertEqual(len(results), 1)
-
-            # test fields
             title1 = 'add one user'
             content1 = 'add one user content 1'
             title2 = 'add two user'
@@ -143,5 +152,52 @@ class TestSearch(TestCase):
             self.assertEqual(len(results), 1)
 
 
+class TestSearchHybridProp(SearchTestBase):
+
+    def setUp(self):
+        super(TestSearchHybridProp, self).setUp()
+
+        class PostHybrid(db.Model, ModelSaveMixin):
+            __tablename__ = 'hybrid_posts'
+            __searchable__ = ['fts_text']
+
+            id = db.Column(db.Integer, primary_key=True)
+            title = db.Column(db.String(49))
+            content = db.Column(db.Text)
+
+            @hybrid_property
+            def fts_text(self):
+                return ' '.join([
+                    self.title,
+                    self.content
+                ])
+
+            @fts_text.expression
+            def fts_text(cls):
+                return db.func.concat(cls.title, ' ', cls.content)
+
+            def __repr__(self):
+                return '<Post:{}>'.format(self.title)
+
+        self.Post = PostHybrid
+        self.init_data()
+
+    def test_field_search(self):
+        with self.app.test_request_context():
+            title1 = 'add one user'
+            content1 = 'add one user content 1'
+            title2 = 'add two user'
+            content2 = 'add two content 2'
+            post1 = self.Post(title=title1, content=content1)
+            post1.save()
+
+            post2 = self.Post(title=title2, content=content2)
+            post2.save()
+
+            results = self.Post.query.msearch('user').all()
+            self.assertEqual(len(results), 2)
+
+
 if __name__ == '__main__':
-    main()
+    suite = unittest.TestLoader().loadTestsFromNames(['test.TestSearch', 'test.TestSearchHybridProp'])
+    unittest.TextTestRunner(verbosity=1).run(suite)
