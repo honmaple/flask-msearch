@@ -18,7 +18,7 @@ import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
 from flask_sqlalchemy import models_committed
 from sqlalchemy.inspection import inspect
-from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer)
+from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer, Text)
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import (BOOLEAN, DATETIME, ID, NUMERIC, TEXT, Schema)
@@ -134,25 +134,33 @@ class WhooshSearch(BaseBackend):
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
             field_attr = getattr(model, field)
-            if hasattr(field_attr, 'descriptor') and isinstance(
-                    field_attr.descriptor, hybrid_property):
-                schema_fields[field] = TEXT(
-                    stored=True, analyzer=analyzer, sortable=False)
+            if hasattr(field_attr, 'descriptor') and isinstance(field_attr.descriptor, hybrid_property):
+                field_type = Text
+                type_hint = getattr(field_attr, 'type_hint', None)
+                if type_hint is not None:
+                    type_hint_map = {
+                        'date': Date,
+                        'datetime': DateTime,
+                        'boolean': Boolean,
+                        'integer': Integer,
+                        'float': Float
+                    }
+                    field_type = type_hint_map.get(type_hint.lower(), Text)
             else:
                 field_type = field_attr.property.columns[0].type
-                if field in primary_keys:
-                    schema_fields[field] = ID(stored=True, unique=True)
-                elif field_type in (DateTime, Date):
-                    schema_fields[field] = DATETIME(stored=True, sortable=True)
-                elif field_type == Integer:
-                    schema_fields[field] = NUMERIC(stored=True, numtype=int)
-                elif field_type == Float:
-                    schema_fields[field] = NUMERIC(stored=True, numtype=float)
-                elif field_type == Boolean:
-                    schema_fields[field] = BOOLEAN(stored=True)
-                else:
-                    schema_fields[field] = TEXT(
-                        stored=True, analyzer=analyzer, sortable=True)
+            if field in primary_keys:
+                schema_fields[field] = ID(stored=True, unique=True)
+            elif field_type in (DateTime, Date):
+                schema_fields[field] = DATETIME(stored=True, sortable=True)
+            elif field_type == Integer:
+                schema_fields[field] = NUMERIC(stored=True, numtype=int)
+            elif field_type == Float:
+                schema_fields[field] = NUMERIC(stored=True, numtype=float)
+            elif field_type == Boolean:
+                schema_fields[field] = BOOLEAN(stored=True)
+            else:
+                schema_fields[field] = TEXT(
+                    stored=True, analyzer=analyzer, sortable=True)
 
         return Schema(**schema_fields)
 
