@@ -33,7 +33,6 @@ class ModelSaveMixin(object):
 
 
 class SearchTestBase(unittest.TestCase):
-
     def setUp(self):
         class TestConfig(object):
             SQLALCHEMY_TRACK_MODIFICATIONS = True
@@ -191,23 +190,9 @@ class TestSearchHybridProp(TestMixin, SearchTestBase):
             self.assertEqual(len(results), 2)
 
 
-class TestHybridPropTypeHint(unittest.TestCase):
-
+class TestHybridPropTypeHint(SearchTestBase):
     def setUp(self):
-        class TestConfig(object):
-            SQLALCHEMY_TRACK_MODIFICATIONS = True
-            SQLALCHEMY_DATABASE_URI = 'sqlite://'
-            DEBUG = True
-            TESTING = True
-            MSEARCH_INDEX_NAME = mkdtemp()
-
-        self.app = Flask(__name__)
-        self.app.config.from_object(TestConfig())
-        global db
-        db = SQLAlchemy()
-        self.search = Search(db=db)
-        db.init_app(self.app)
-        self.search.init_app(self.app)
+        super(TestHybridPropTypeHint, self).setUp()
 
         class Post(db.Model, ModelSaveMixin):
             __tablename__ = 'posts'
@@ -230,13 +215,15 @@ class TestHybridPropTypeHint(unittest.TestCase):
 
             @hybrid_property
             def fts_date(self):
-                return max(datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
+                return max(
+                    datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
 
             fts_date.type_hint = 'date'
 
             @fts_date.expression
             def fts_date(cls):
-                return db.func.max(datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
+                return db.func.max(
+                    datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
 
             def __repr__(self):
                 return '<Post:{}>'.format(self.name)
@@ -246,13 +233,8 @@ class TestHybridPropTypeHint(unittest.TestCase):
             db.create_all()
             for i in range(10):
                 name = 'post %d' % i
-                post = self.Post(name=name, int1=i, int2=i*2)
+                post = self.Post(name=name, int1=i, int2=i * 2)
                 post.save()
-
-    def tearDown(self):
-        with self.app.test_request_context():
-            db.drop_all()
-            db.metadata.clear()
 
     def test_int_prop(self):
         with self.app.test_request_context():
@@ -263,7 +245,8 @@ class TestHybridPropTypeHint(unittest.TestCase):
 
     def test_date_prop(self):
         with self.app.test_request_context():
-            results = self.Post.query.msearch('2017-05-04', fields=['fts_date']).all()
+            results = self.Post.query.msearch(
+                '2017-05-04', fields=['fts_date']).all()
             assert len(results) == 10
 
 
