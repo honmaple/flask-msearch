@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期六 2017-5-27 0:11:25 (CST)
+# Last Update:星期五 2017-6-2 13:58:17 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,13 +15,14 @@ import os.path
 import sys
 
 import sqlalchemy
-from sqlalchemy.ext.hybrid import hybrid_property
+from inspect import isclass
 from flask_sqlalchemy import models_committed
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
-from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer)
+from sqlalchemy.types import Boolean, Date, DateTime, Float, Integer, Text
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import (BOOLEAN, DATETIME, ID, NUMERIC, TEXT, Schema)
+from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT, Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
 from .backends import BaseBackend, logger
@@ -136,24 +137,34 @@ class WhooshSearch(BaseBackend):
             field_attr = getattr(model, field)
             if hasattr(field_attr, 'descriptor') and isinstance(
                     field_attr.descriptor, hybrid_property):
-                schema_fields[field] = TEXT(
-                    stored=True, analyzer=analyzer, sortable=False)
+                field_type = Text
+                type_hint = getattr(field_attr, 'type_hint', None)
+                if type_hint is not None:
+                    type_hint_map = {
+                        'date': Date,
+                        'datetime': DateTime,
+                        'boolean': Boolean,
+                        'integer': Integer,
+                        'float': Float
+                    }
+                    field_type = type_hint if isclass(
+                        type_hint) else type_hint_map.get(type_hint.lower(),
+                                                          Text)
             else:
                 field_type = field_attr.property.columns[0].type
-                if field in primary_keys:
-                    schema_fields[field] = ID(stored=True, unique=True)
-                elif field_type in (DateTime, Date):
-                    schema_fields[field] = DATETIME(stored=True, sortable=True)
-                elif field_type == Integer:
-                    schema_fields[field] = NUMERIC(stored=True, numtype=int)
-                elif field_type == Float:
-                    schema_fields[field] = NUMERIC(stored=True, numtype=float)
-                elif field_type == Boolean:
-                    schema_fields[field] = BOOLEAN(stored=True)
-                else:
-                    schema_fields[field] = TEXT(
-                        stored=True, analyzer=analyzer, sortable=True)
-
+            if field in primary_keys:
+                schema_fields[field] = ID(stored=True, unique=True)
+            elif field_type in (DateTime, Date):
+                schema_fields[field] = DATETIME(stored=True, sortable=True)
+            elif field_type == Integer:
+                schema_fields[field] = NUMERIC(stored=True, numtype=int)
+            elif field_type == Float:
+                schema_fields[field] = NUMERIC(stored=True, numtype=float)
+            elif field_type == Boolean:
+                schema_fields[field] = BOOLEAN(stored=True)
+            else:
+                schema_fields[field] = TEXT(
+                    stored=True, analyzer=analyzer, sortable=False)
         return Schema(**schema_fields)
 
     def _index_signal(self, sender, changes):

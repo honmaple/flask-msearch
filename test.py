@@ -1,7 +1,8 @@
+import datetime
 import logging
 import unittest
-from unittest import TestCase
 from tempfile import mkdtemp
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_msearch import Search
@@ -31,7 +32,7 @@ class ModelSaveMixin(object):
         db.session.commit()
 
 
-class SearchTestBase(TestCase):
+class SearchTestBase(unittest.TestCase):
     def setUp(self):
         class TestConfig(object):
             SQLALCHEMY_TRACK_MODIFICATIONS = True
@@ -189,7 +190,70 @@ class TestSearchHybridProp(TestMixin, SearchTestBase):
             self.assertEqual(len(results), 2)
 
 
+class TestHybridPropTypeHint(SearchTestBase):
+    def setUp(self):
+        super(TestHybridPropTypeHint, self).setUp()
+
+        class Post(db.Model, ModelSaveMixin):
+            __tablename__ = 'posts'
+            __searchable__ = ['fts_int', 'fts_date']
+
+            id = db.Column(db.Integer, primary_key=True)
+            name = db.Column(db.String(20))
+            int1 = db.Column(db.Integer)
+            int2 = db.Column(db.Integer)
+
+            @hybrid_property
+            def fts_int(self):
+                return self.int1 + self.int2
+
+            fts_int.type_hint = 'integer'
+
+            @fts_int.expression
+            def fts_int(cls):
+                return db.func.sum(cls.int1, cls.int2)
+
+            @hybrid_property
+            def fts_date(self):
+                return max(
+                    datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
+
+            fts_date.type_hint = 'date'
+
+            @fts_date.expression
+            def fts_date(cls):
+                return db.func.max(
+                    datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
+
+            def __repr__(self):
+                return '<Post:{}>'.format(self.name)
+
+        self.Post = Post
+        with self.app.test_request_context():
+            db.create_all()
+            for i in range(10):
+                name = 'post %d' % i
+                post = self.Post(name=name, int1=i, int2=i * 2)
+                post.save()
+
+    def test_int_prop(self):
+        with self.app.test_request_context():
+            results = self.Post.query.msearch('0', fields=['fts_int']).all()
+            assert len(results) == 1
+            results = self.Post.query.msearch('27', fields=['fts_int']).all()
+            assert len(results) == 1
+
+    def test_date_prop(self):
+        with self.app.test_request_context():
+            results = self.Post.query.msearch(
+                '2017-05-04', fields=['fts_date']).all()
+            assert len(results) == 10
+
+
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromNames(
-        ['test.TestSearch', 'test.TestSearchHybridProp'])
+    suite = unittest.TestLoader().loadTestsFromNames([
+        'test.TestSearch',
+        'test.TestSearchHybridProp',
+        'test.TestHybridPropTypeHint',
+    ])
     unittest.TextTestRunner(verbosity=1).run(suite)
