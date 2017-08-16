@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期五 2017-6-2 13:58:17 (CST)
+# Last Update:星期三 2017-8-16 9:38:2 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -87,25 +87,49 @@ class WhooshSearch(BaseBackend):
             writer.commit()
         return instance
 
-    def create_index(self, model='__all__', update=False, delete=False):
+    def create_index(self,
+                     model='__all__',
+                     update=False,
+                     delete=False,
+                     yield_per=100):
         if model == '__all__':
             return self.create_all_index(update, delete)
         ix = self._index(model)
         writer = ix.writer()
-        instances = model.query.enable_eagerloads(False).yield_per(100)
+        instances = model.query.enable_eagerloads(False).yield_per(yield_per)
         for instance in instances:
             self.create_one_index(instance, writer, update, delete, False)
         writer.commit()
         return ix
 
-    def create_all_index(self, update=False, delete=False):
+    def create_all_index(self, update=False, delete=False, yield_per=100):
         all_models = self.db.Model._decl_class_registry.values()
         models = [i for i in all_models if hasattr(i, '__searchable__')]
         ixs = []
         for m in models:
-            ix = self.create_index(m, update, delete)
+            ix = self.create_index(m, update, delete, yield_per)
             ixs.append(ix)
         return ixs
+
+    def update_one_index(self, instance, writer=None, commit=True):
+        return self.create_one_index(
+            instance, writer, update=True, commit=commit)
+
+    def delete_one_index(self, instance, writer=None, commit=True):
+        return self.delete_one_index(
+            instance, writer, delete=True, commit=commit)
+
+    def update_all_index(self, yield_per=100):
+        return self.create_all_index(update=True, yield_per=yield_per)
+
+    def delete_all_index(self, yield_per=100):
+        return self.create_all_index(delete=True, yield_per=yield_per)
+
+    def update_index(self, model='__all__', yield_per=100):
+        return self.create_index(model, update=True, yield_per=yield_per)
+
+    def delete_index(self, model='__all__', yield_per=100):
+        return self.create_index(model, delete=True, yield_per=yield_per)
 
     def _index(self, model):
         '''
