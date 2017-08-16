@@ -78,7 +78,7 @@
 
 *** Delete_index
     #+BEGIN_SRC python
-    search.delete()
+    search.delete_index()
     # or
     search.create_index(delete=True)
     #+END_SRC
