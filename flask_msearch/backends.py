@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期六 2017-5-6 12:56:36 (CST)
+# Last Update:星期三 2017-8-16 14:2:38 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -17,6 +17,18 @@ log_console = logging.StreamHandler(sys.stderr)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
+
+
+def relation_column(instance, fields):
+    '''
+    such as: user.username
+    such as: replies.content
+    '''
+    relation = getattr(instance.__class__, fields[0]).property
+    _field = getattr(instance, fields[0])
+    if relation.lazy == 'dynamic':
+        _field = _field.first()
+    return getattr(_field, fields[1]) if _field else ''
 
 
 class BaseBackend(object):
@@ -49,5 +61,5 @@ class BaseBackend(object):
 
         return Query
 
-    def msearch(self, m, query, fields=None, limit=None, or_=False):
-        raise NotImplementedError
+    # def msearch(self, m, query, fields=None, limit=None, or_=False):
+    #     raise NotImplementedError

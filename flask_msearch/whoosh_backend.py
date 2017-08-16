@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期三 2017-8-16 9:38:2 (CST)
+# Last Update:星期三 2017-8-16 14:10:31 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -25,7 +25,7 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT, Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
-from .backends import BaseBackend, logger
+from .backends import BaseBackend, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'whoosh_index'
 DEFAULT_ANALYZER = StemmingAnalyzer()
@@ -72,8 +72,12 @@ class WhooshSearch(BaseBackend):
         if not writer:
             writer = ix.writer()
         attrs = {'id': str(instance.id)}
-        for i in searchable:
-            attrs[i] = str(getattr(instance, i))
+
+        for field in searchable:
+            if '.' in field:
+                attrs[field] = str(relation_column(instance, field.split('.')))
+            else:
+                attrs[field] = str(getattr(instance, field))
         if delete:
             logger.debug('deleting index: {}'.format(instance))
             writer.delete_by_term('id', str(instance.id))
@@ -135,7 +139,9 @@ class WhooshSearch(BaseBackend):
         '''
         get index
         '''
-        name = model.__table__.name
+        name = model
+        if not isinstance(model, str):
+            name = model.__table__.name
         if name not in self._indexs:
             ix_path = os.path.join(self.whoosh_path, name)
             if whoosh_index.exists_in(ix_path):
@@ -157,8 +163,15 @@ class WhooshSearch(BaseBackend):
         analyzer = getattr(model, '__whoosh_analyzer__') if hasattr(
             model, '__whoosh_analyzer__') else self.analyzer
         primary_keys = [key.name for key in inspect(model).primary_key]
+
         for field in searchable:
-            field_attr = getattr(model, field)
+            if '.' in field:
+                fields = field.split('.')
+                field_attr = getattr(
+                    getattr(model, fields[0]).property.mapper.class_,
+                    fields[1])
+            else:
+                field_attr = getattr(model, field)
             if hasattr(field_attr, 'descriptor') and isinstance(
                     field_attr.descriptor, hybrid_property):
                 field_type = Text
@@ -202,6 +215,20 @@ class WhooshSearch(BaseBackend):
                     self.create_one_index(instance, update=True)
                 elif operation == 'delete':
                     self.create_one_index(instance, delete=True)
+
+            prepare = [i for i in dir(instance) if i.startswith('msearch_')]
+            for p in prepare:
+                if operation == 'delete':
+                    attrs = getattr(instance, p)(delete=True)
+                else:
+                    attrs = getattr(instance, p)()
+                ix = self._index(attrs.pop('_index'))
+                if attrs['attrs']:
+                    writer = ix.writer()
+                    # logger.debug('updating index: {}'.format(instance))
+                    for attr in attrs['attrs']:
+                        writer.update_document(**attr)
+                    writer.commit()
 
     def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
         logger.warning(

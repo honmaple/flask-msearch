@@ -1,5 +1,5 @@
 * flask-msearch
-  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.4-brightgreen.svg]]
+  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.5-brightgreen.svg]]
   [[https://python.org][https://img.shields.io/badge/python-2/3-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
 
@@ -65,20 +65,21 @@
 
 
 *** Create_index
-   *only support 'whoosh' backend*
    #+BEGIN_SRC sh
    search.create_index()
    #+END_SRC
 
 *** Update_index
-   *only support 'whoosh' backend*
     #+BEGIN_SRC python
+    search.update_index()
+    # or
     search.create_index(update=True)
     #+END_SRC
 
 *** Delete_index
-   *only support 'whoosh' backend*
     #+BEGIN_SRC python
+    search.delete()
+    # or
     search.create_index(delete=True)
     #+END_SRC
 
@@ -87,3 +88,46 @@
       from jieba.analyse import ChineseAnalyzer
       search = Search(analyzer=ChineseAnalyzer())
     #+END_SRC
+
+** Relate index
+   for example
+   #+BEGIN_SRC python
+     class Tag(db.Model, ModelSaveMixin):
+         __tablename__ = 'tag'
+
+         id = db.Column(db.Integer, primary_key=True)
+         name = db.Column(db.String(49))
+
+     class Post(db.Model, ModelSaveMixin):
+         __tablename__ = 'post'
+         __searchable__ = ['title', 'content', 'tag.name']
+
+         id = db.Column(db.Integer, primary_key=True)
+         title = db.Column(db.String(49))
+         content = db.Column(db.Text)
+
+         # one to one
+         tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'))
+         tag = db.relationship(
+             Tag, backref=db.backref(
+                 'post', uselist=False), uselist=False)
+
+         def __repr__(self):
+             return '<Post:{}>'.format(self.title)
+   #+END_SRC
+
+   You must add *msearch_FUN* to Tag model,or the *tag.name* can't auto update.
+   #+BEGIN_SRC python
+   class Tag....
+     ......
+     def msearch_post_tag(self, delete=False):
+         from sqlalchemy import text
+         sql = text('select id from post where tag_id=' + str(self.id))
+         return {
+             'attrs': [{
+                 'id': str(i[0]),
+                 'tag.name': self.name
+             } for i in db.engine.execute(sql)],
+             '_index': Post
+         }
+   #+END_SRC

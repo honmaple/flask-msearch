@@ -23,9 +23,7 @@ class ModelSaveMixin(object):
     def save(self):
         if not self.id:
             db.session.add(self)
-            db.session.commit()
-        else:
-            db.session.commit()
+        db.session.commit()
 
     def delete(self):
         db.session.delete(self)
@@ -40,7 +38,7 @@ class SearchTestBase(unittest.TestCase):
             DEBUG = True
             TESTING = True
             MSEARCH_INDEX_NAME = mkdtemp()
-            # MSEARCH_BACKEND = 'simple'
+            # MSEARCH_BACKEND = 'whoosh'
 
         self.app = Flask(__name__)
         self.app.config.from_object(TestConfig())
@@ -48,10 +46,8 @@ class SearchTestBase(unittest.TestCase):
         #  a) global for all objects we share and
         #  b) fresh for every test run
         global db
-        db = SQLAlchemy()
-        self.search = Search(db=db)
-        db.init_app(self.app)
-        self.search.init_app(self.app)
+        db = SQLAlchemy(self.app)
+        self.search = Search(self.app, db=db)
         self.Post = None
 
     def init_data(self):
@@ -144,6 +140,89 @@ class TestSearch(TestMixin, SearchTestBase):
 
             results = self.Post.query.msearch('user', fields=['content']).all()
             self.assertEqual(len(results), 1)
+
+
+class TestRelationSearch(TestMixin, SearchTestBase):
+    def setUp(self):
+        super(TestRelationSearch, self).setUp()
+
+        class Tag(db.Model, ModelSaveMixin):
+            __tablename__ = 'tag'
+
+            id = db.Column(db.Integer, primary_key=True)
+            name = db.Column(db.String(49))
+
+            def msearch_post_tag(self, delete=False):
+                from sqlalchemy import text
+                sql = text('select id from post where tag_id=' + str(self.id))
+                return {
+                    'attrs': [{
+                        'id': str(i[0]),
+                        'tag.name': self.name
+                    } for i in db.engine.execute(sql)],
+                    '_index': Post
+                }
+
+        class Post(db.Model, ModelSaveMixin):
+            __tablename__ = 'post'
+            __searchable__ = ['title', 'content', 'tag.name']
+
+            id = db.Column(db.Integer, primary_key=True)
+            title = db.Column(db.String(49))
+            content = db.Column(db.Text)
+
+            # one to one
+            tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'))
+            tag = db.relationship(
+                Tag, backref=db.backref(
+                    'post', uselist=False), uselist=False)
+
+            def __repr__(self):
+                return '<Post:{}>'.format(self.title)
+
+        self.Post = Post
+        self.Tag = Tag
+        self.init_data()
+
+    def test_field_search(self):
+        with self.app.test_request_context():
+            title1 = 'add one user'
+            content1 = 'add one user content 1'
+            title2 = 'add two user'
+            content2 = 'add two content 2'
+
+            post1 = self.Post(title=title1, content=content1)
+            post1.save()
+
+            tag1 = self.Tag(name='tag hello1', post=post1)
+            tag1.save()
+
+            post2 = self.Post(title=title2, content=content2)
+            post2.save()
+
+            tag2 = self.Tag(name='tag hello2', post=post2)
+            tag2.save()
+
+            results = self.Post.query.msearch('tag').all()
+            self.assertEqual(len(results), 2)
+
+            results = self.Post.query.msearch('tag', fields=['title']).all()
+            self.assertEqual(len(results), 0)
+
+            results = self.Post.query.msearch('tag', fields=['tag.name']).all()
+            self.assertEqual(len(results), 2)
+
+            tag1.name = 'post hello1'
+            tag1.save()
+
+            results = self.Post.query.msearch('tag', fields=['tag.name']).all()
+            self.assertEqual(len(results), 1)
+
+            tag1.name = 'post tag'
+            tag1.save()
+
+            results = self.Post.query.msearch('tag', fields=['tag.name']).all()
+            self.assertEqual(len(results), 2)
 
 
 class TestSearchHybridProp(TestMixin, SearchTestBase):
@@ -253,6 +332,7 @@ class TestHybridPropTypeHint(SearchTestBase):
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames([
         'test.TestSearch',
+        'test.TestRelationSearch',
         'test.TestSearchHybridProp',
         'test.TestHybridPropTypeHint',
     ])
