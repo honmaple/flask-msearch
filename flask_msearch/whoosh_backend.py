@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期六 2017-5-6 13:3:31 (CST)
+# Last Update:星期三 2017-8-16 14:10:31 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,17 +15,17 @@ import os.path
 import sys
 
 import sqlalchemy
+from inspect import isclass
 from flask_sqlalchemy import models_committed
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
-from sqlalchemy.types import (Boolean, Date, DateTime, Float, Integer, String,
-                              Text)
+from sqlalchemy.types import Boolean, Date, DateTime, Float, Integer, Text
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import (BOOLEAN, DATETIME, ID, IDLIST, KEYWORD, NGRAM,
-                           NGRAMWORDS, NUMERIC, TEXT, Schema)
+from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT, Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
-from .backends import BaseBackend, logger
+from .backends import BaseBackend, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'whoosh_index'
 DEFAULT_ANALYZER = StemmingAnalyzer()
@@ -72,8 +72,12 @@ class WhooshSearch(BaseBackend):
         if not writer:
             writer = ix.writer()
         attrs = {'id': str(instance.id)}
-        for i in searchable:
-            attrs[i] = str(getattr(instance, i))
+
+        for field in searchable:
+            if '.' in field:
+                attrs[field] = str(relation_column(instance, field.split('.')))
+            else:
+                attrs[field] = str(getattr(instance, field))
         if delete:
             logger.debug('deleting index: {}'.format(instance))
             writer.delete_by_term('id', str(instance.id))
@@ -87,31 +91,57 @@ class WhooshSearch(BaseBackend):
             writer.commit()
         return instance
 
-    def create_index(self, model='__all__', update=False, delete=False):
+    def create_index(self,
+                     model='__all__',
+                     update=False,
+                     delete=False,
+                     yield_per=100):
         if model == '__all__':
             return self.create_all_index(update, delete)
         ix = self._index(model)
         writer = ix.writer()
-        instances = model.query.enable_eagerloads(False).yield_per(100)
+        instances = model.query.enable_eagerloads(False).yield_per(yield_per)
         for instance in instances:
             self.create_one_index(instance, writer, update, delete, False)
         writer.commit()
         return ix
 
-    def create_all_index(self, update=False, delete=False):
+    def create_all_index(self, update=False, delete=False, yield_per=100):
         all_models = self.db.Model._decl_class_registry.values()
         models = [i for i in all_models if hasattr(i, '__searchable__')]
         ixs = []
         for m in models:
-            ix = self.create_index(m, update, delete)
+            ix = self.create_index(m, update, delete, yield_per)
             ixs.append(ix)
         return ixs
+
+    def update_one_index(self, instance, writer=None, commit=True):
+        return self.create_one_index(
+            instance, writer, update=True, commit=commit)
+
+    def delete_one_index(self, instance, writer=None, commit=True):
+        return self.delete_one_index(
+            instance, writer, delete=True, commit=commit)
+
+    def update_all_index(self, yield_per=100):
+        return self.create_all_index(update=True, yield_per=yield_per)
+
+    def delete_all_index(self, yield_per=100):
+        return self.create_all_index(delete=True, yield_per=yield_per)
+
+    def update_index(self, model='__all__', yield_per=100):
+        return self.create_index(model, update=True, yield_per=yield_per)
+
+    def delete_index(self, model='__all__', yield_per=100):
+        return self.create_index(model, delete=True, yield_per=yield_per)
 
     def _index(self, model):
         '''
         get index
         '''
-        name = model.__table__.name
+        name = model
+        if not isinstance(model, str):
+            name = model.__table__.name
         if name not in self._indexs:
             ix_path = os.path.join(self.whoosh_path, name)
             if whoosh_index.exists_in(ix_path):
@@ -133,8 +163,32 @@ class WhooshSearch(BaseBackend):
         analyzer = getattr(model, '__whoosh_analyzer__') if hasattr(
             model, '__whoosh_analyzer__') else self.analyzer
         primary_keys = [key.name for key in inspect(model).primary_key]
+
         for field in searchable:
-            field_type = getattr(model, field).property.columns[0].type
+            if '.' in field:
+                fields = field.split('.')
+                field_attr = getattr(
+                    getattr(model, fields[0]).property.mapper.class_,
+                    fields[1])
+            else:
+                field_attr = getattr(model, field)
+            if hasattr(field_attr, 'descriptor') and isinstance(
+                    field_attr.descriptor, hybrid_property):
+                field_type = Text
+                type_hint = getattr(field_attr, 'type_hint', None)
+                if type_hint is not None:
+                    type_hint_map = {
+                        'date': Date,
+                        'datetime': DateTime,
+                        'boolean': Boolean,
+                        'integer': Integer,
+                        'float': Float
+                    }
+                    field_type = type_hint if isclass(
+                        type_hint) else type_hint_map.get(type_hint.lower(),
+                                                          Text)
+            else:
+                field_type = field_attr.property.columns[0].type
             if field in primary_keys:
                 schema_fields[field] = ID(stored=True, unique=True)
             elif field_type in (DateTime, Date):
@@ -147,8 +201,7 @@ class WhooshSearch(BaseBackend):
                 schema_fields[field] = BOOLEAN(stored=True)
             else:
                 schema_fields[field] = TEXT(
-                    stored=True, analyzer=analyzer, sortable=True)
-
+                    stored=True, analyzer=analyzer, sortable=False)
         return Schema(**schema_fields)
 
     def _index_signal(self, sender, changes):
@@ -162,6 +215,25 @@ class WhooshSearch(BaseBackend):
                     self.create_one_index(instance, update=True)
                 elif operation == 'delete':
                     self.create_one_index(instance, delete=True)
+
+            prepare = [i for i in dir(instance) if i.startswith('msearch_')]
+            for p in prepare:
+                if operation == 'delete':
+                    attrs = getattr(instance, p)(delete=True)
+                else:
+                    attrs = getattr(instance, p)()
+                ix = self._index(attrs.pop('_index'))
+                if attrs['attrs']:
+                    writer = ix.writer()
+                    # logger.debug('updating index: {}'.format(instance))
+                    for attr in attrs['attrs']:
+                        writer.update_document(**attr)
+                    writer.commit()
+
+    def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
+        logger.warning(
+            'whoosh_search has been replaced by msearch.please use msearch')
+        return self.msearch(m, query, fields, limit, or_)
 
     def msearch(self, m, query, fields=None, limit=None, or_=False):
         '''
@@ -179,6 +251,12 @@ class WhooshSearch(BaseBackend):
         _self = self
 
         class Query(q):
+            def whoosh_search(self, query, fields=None, limit=None, or_=False):
+                logger.warning(
+                    'whoosh_search has been replaced by msearch.please use msearch'
+                )
+                return self.msearch(query, fields, limit, or_)
+
             def msearch(self, query, fields=None, limit=None, or_=False):
                 model = self._mapper_zero().class_
                 results = _self.msearch(model, query, fields, limit, or_)

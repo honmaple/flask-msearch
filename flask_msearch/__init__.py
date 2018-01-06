@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update:星期六 2017-5-6 11:17:17 (CST)
+# Last Update:星期三 2017-8-16 12:51:15 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -20,9 +20,6 @@ class Search(BaseBackend):
         if msearch_backend == 'simple':
             from .simple_backend import SimpleSearch
             self._backend = SimpleSearch(app, self.db, self.analyzer)
-        elif msearch_backend == 'elasticsearch':
-            from .elasticsearch_backend import ElasticSearch
-            self._backend = ElasticSearch(app, self.db, self.analyzer)
         elif msearch_backend == 'whoosh':
             from .whoosh_backend import WhooshSearch
             self._backend = WhooshSearch(app, self.db, self.analyzer)
