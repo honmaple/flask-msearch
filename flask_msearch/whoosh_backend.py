@@ -6,12 +6,11 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期日 2018-01-07 01:40:36 (CST)
+# Last Update: Monday 2018-05-09 10:48:32 (CST)
 #          By:
 # Description:
 # **************************************************************************
 import os
-import os.path
 import sys
 
 import sqlalchemy
@@ -25,10 +24,9 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
+from .backends import BaseBackend, logger
 
-from .backends import BaseBackend, logger, relation_column
-
-DEFAULT_WHOOSH_INDEX_NAME = 'whoosh_index'
+DEFAULT_WHOOSH_INDEX_NAME = 'msearch'
 DEFAULT_ANALYZER = StemmingAnalyzer()
 DEFAULT_PRIMARY_KEY = 'id'
 
@@ -93,15 +91,15 @@ class Schema(object):
 
 
 class Index(object):
-    def __init__(self, index_name, table, analyzer=None):
-        self.index_name = index_name
+    def __init__(self, name, table, analyzer=None):
+        self.name = name
         self.table = table
         self._schema = Schema(table, analyzer)
-        self._client = self.init()
         self._writer = None
+        self._client = self.init()
 
     def init(self):
-        ix_path = os.path.join(self.index_name, self.table.__table__.name)
+        ix_path = os.path.join(self.name, self.table.__table__.name)
         if whoosh_index.exists_in(ix_path):
             return whoosh_index.open_dir(ix_path)
         if not os.path.exists(ix_path):

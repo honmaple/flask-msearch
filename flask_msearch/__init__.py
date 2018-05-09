@@ -6,21 +6,11 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update:星期日 2018-01-07 01:33:46 (CST)
+# Last Update: Monday 2018-05-09 10:35:32 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from .simple_backend import SimpleSearch
-
-try:
-    from .whoosh_backend import WhooshSearch
-except ImportError:
-    WhooshSearch = None
-
-try:
-    from .elasticsearch_backend import ElasticSearch
-except ImportError:
-    ElasticSearch = None
+from werkzeug import import_string
 
 
 class Search(object):
@@ -40,13 +30,17 @@ class Search(object):
         app.config.setdefault('MSEARCH_BACKEND', 'whoosh')
         msearch_backend = app.config['MSEARCH_BACKEND']
         if msearch_backend == 'simple':
-            self._backend = SimpleSearch(app, self.db, self.analyzer)
+            backend = import_string(
+                "flask_msearch.simple_backend.SimpleSearch")
         elif msearch_backend == 'whoosh':
-            self._backend = WhooshSearch(app, self.db, self.analyzer)
+            backend = import_string(
+                "flask_msearch.whoosh_backend.WhooshSearch")
         elif msearch_backend == 'elasticsearch':
-            self._backend = ElasticSearch(app, self.db, self.analyzer)
+            backend = import_string(
+                "flask_msearch.elasticsearch_backend.ElasticSearch")
         else:
             raise ValueError('backends {} not exists.'.format(msearch_backend))
+        self._backend = backend(app, self.db, self.analyzer)
 
     def __getattr__(self, name):
         return getattr(self._backend, name)

@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update:星期日 2018-01-07 01:40:06 (CST)
+# Last Update: Monday 2018-05-09 10:29:37 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -160,7 +160,6 @@ class BaseBackend(object):
                     attrs = getattr(instance, p)()
                 ix = self._index(attrs.pop('_index'))
                 if attrs['attrs']:
-                    # logger.debug('updating index: {}'.format(instance))
                     for attr in attrs['attrs']:
                         ix.update(**self._fields(attr))
                     ix.commit()

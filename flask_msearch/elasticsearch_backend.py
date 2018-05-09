@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update:星期日 2018-01-07 01:48:03 (CST)
+# Last Update: Monday 2018-05-09 11:45:38 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -48,38 +48,39 @@ class Schema(object):
 
 
 class Index(object):
-    def __init__(self, client, index_name, doc_type):
+    def __init__(self, client, name, doc_type):
         self._client = client
-        self.index_name = index_name
+        self.name = name
         self.doc_type = doc_type
 
     def init(self):
-        if not self._client.indices.exists(index=self.index_name):
-            self._client.indices.create(index=self.index_name, ignore=400)
+        if not self._client.indices.exists(index=self.name):
+            self._client.indices.create(index=self.name, ignore=400)
 
     def create(self, **kwargs):
-        kwargs.update(index=self.index_name, doc_type=self.doc_type)
+        kwargs.update(index=self.name, doc_type=self.doc_type)
         return self._client.create(**kwargs)
 
     def update(self, **kwargs):
         kwargs.update(
-            index=self.index_name, doc_type=self.doc_type, id=kwargs.pop('id'))
+            index=self.name, doc_type=self.doc_type, id=kwargs.pop('id'))
         return self._client.update(**kwargs)
 
     def delete(self, **kwargs):
-        kwargs.update(index=self.index_name, doc_type=self.doc_type)
+        kwargs.update(index=self.name, doc_type=self.doc_type)
         return self._client.delete(**kwargs)
 
     def search(self, **kwargs):
-        kwargs.update(index=self.index_name, doc_type=self.doc_type)
+        kwargs.update(index=self.name, doc_type=self.doc_type)
         return self._client.search(**kwargs)
 
     def commit(self):
-        return self._client.indices.refresh(index=self.index_name)
+        return self._client.indices.refresh(index=self.name)
 
 
 class ElasticSearch(BaseBackend):
     def init_app(self, app):
+        self._indexs = {}
         es_setting = app.config.get('ELASTICSEARCH', {})
         self.index_name = app.config.get('MSEARCH_INDEX_NAME', 'msearch')
         self._client = Elasticsearch(**es_setting)
