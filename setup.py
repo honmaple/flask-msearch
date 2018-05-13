@@ -28,6 +28,8 @@ setup(
     platforms='any',
     install_requires=[
         'Flask',
+        'whoosh',
+        'blinker',
     ],
     classifiers=[
         'Environment :: Web Environment',
