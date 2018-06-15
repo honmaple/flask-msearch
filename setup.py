@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update: Monday 2018-05-09 11:53:24 (CST)
+# Last Update: Friday 2018-06-15 10:29:40 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,7 +15,7 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.1.6',
+    version='0.1.7',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',
@@ -28,6 +28,7 @@ setup(
     platforms='any',
     install_requires=[
         'Flask',
+        'Flask-SQLAlchemy'
     ],
     classifiers=[
         'Environment :: Web Environment',

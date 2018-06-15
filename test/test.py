@@ -15,7 +15,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 # do not clutter output with log entries
 logging.disable(logging.CRITICAL)
 
-db = None
+# db = None
 
 titles = [
     'watch a movie',
@@ -104,7 +104,9 @@ class TestMixin(object):
 
     def test_delete(self):
         with self.app.test_request_context():
-            self.Post.query.filter_by(title='read a book').delete()
+            r = self.Post.query.filter_by(title='read a book').first()
+            self.db.session.delete(r)
+            self.db.session.commit()
             results = self.Post.query.msearch('book').all()
             self.assertEqual(len(results), 2)
 

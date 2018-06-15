@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2018-05-09 10:48:32 (CST)
+# Last Update: Friday 2018-06-15 10:27:17 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -24,7 +24,7 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
-from .backends import BaseBackend, logger
+from .backends import BaseBackend, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'msearch'
 DEFAULT_ANALYZER = StemmingAnalyzer()
@@ -70,8 +70,8 @@ class Schema(object):
                         'float': Float
                     }
                     field_type = type_hint if isclass(
-                        type_hint) else type_hint_map.get(type_hint.lower(),
-                                                          Text)
+                        type_hint) else type_hint_map.get(
+                            type_hint.lower(), Text)
             else:
                 field_type = field_attr.property.columns[0].type
             if field in primary_keys:
@@ -169,6 +169,44 @@ class WhooshSearch(BaseBackend):
         if name not in self._indexs:
             self._indexs[name] = Index(self.index_name, model, self.analyzer)
         return self._indexs[name]
+
+    def create_one_index(self,
+                         instance,
+                         update=False,
+                         delete=False,
+                         commit=True):
+        '''
+        :param instance: sqlalchemy instance object
+        :param update: when update is True,use `update_document`,default `False`
+        :param delete: when delete is True,use `delete_by_term` with id(primary key),default `False`
+        :param commit: when commit is True,writer would use writer.commit()
+        :raise: ValueError:when both update is True and delete is True
+        :return: instance
+        '''
+        if update and delete:
+            raise ValueError("update and delete can't work togther")
+        table = instance.__class__
+        ix = self._index(table)
+        searchable = ix.fields
+        attrs = {'id': str(instance.id)}
+
+        for field in searchable:
+            if '.' in field:
+                attrs[field] = str(relation_column(instance, field.split('.')))
+            else:
+                attrs[field] = str(getattr(instance, field))
+        if delete:
+            logger.debug('deleting index: {}'.format(instance))
+            ix.delete(fieldname='id', text=str(instance.id))
+        elif update:
+            logger.debug('updating index: {}'.format(instance))
+            ix.update(**attrs)
+        else:
+            logger.debug('creating index: {}'.format(instance))
+            ix.create(**attrs)
+        if commit:
+            ix.commit()
+        return instance
 
     def _fields(self, attr):
         return attr

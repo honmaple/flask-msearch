@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: xiyang0807@gmail.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2018-05-09 10:29:37 (CST)
+# Last Update: Friday 2018-06-15 10:26:36 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -60,44 +60,6 @@ class BaseBackend(object):
                 return _self.msearch(model, query, fields, limit, or_)
 
         return Query
-
-    def create_one_index(self,
-                         instance,
-                         update=False,
-                         delete=False,
-                         commit=True):
-        '''
-        :param instance: sqlalchemy instance object
-        :param update: when update is True,use `update_document`,default `False`
-        :param delete: when delete is True,use `delete_by_term` with id(primary key),default `False`
-        :param commit: when commit is True,writer would use writer.commit()
-        :raise: ValueError:when both update is True and delete is True
-        :return: instance
-        '''
-        if update and delete:
-            raise ValueError("update and delete can't work togther")
-        table = instance.__class__
-        ix = self._index(table)
-        searchable = ix.fields
-        attrs = {'id': str(instance.id)}
-
-        for field in searchable:
-            if '.' in field:
-                attrs[field] = str(relation_column(instance, field.split('.')))
-            else:
-                attrs[field] = str(getattr(instance, field))
-        if delete:
-            logger.debug('deleting index: {}'.format(instance))
-            ix.delete(fieldname='id', termtext=str(instance.id))
-        elif update:
-            logger.debug('updating index: {}'.format(instance))
-            ix.update(**attrs)
-        else:
-            logger.debug('creating index: {}'.format(instance))
-            ix.create(**attrs)
-        if commit:
-            ix.commit()
-        return instance
 
     def create_index(self,
                      model='__all__',
