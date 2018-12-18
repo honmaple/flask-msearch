@@ -1,13 +1,17 @@
 * flask-msearch
-  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.7-brightgreen.svg]]
+  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.8-brightgreen.svg]]
   [[https://python.org][https://img.shields.io/badge/python-2/3-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
-
+  
 ** Installation
    To install flask-msearch:
 
    #+BEGIN_SRC shell
    pip install flask-msearch
+   # when MSEARCH_BACKEND = "whoosh"
+   pip install whoosh blinker
+   # when MSEARCH_BACKEND = "elasticsearch"
+   pip install elasticsearch
    #+END_SRC
 
    Or alternatively, you can download the repository and install manually by doing:
@@ -42,8 +46,8 @@
 ** Config
 
    #+BEGIN_SRC python
-   MSEARCH_INDEX_NAME = 'whoosh_index'
-   # simple,whoosh
+   MSEARCH_INDEX_NAME = 'msearch'
+   # simple,whoosh,elaticsearch, default is simple
    MSEARCH_BACKEND = 'whoosh'
    # auto create or update index
    MSEARCH_ENABLE = True
@@ -57,17 +61,17 @@
      search.init_app(app)
    #+END_SRC
 
-  if raise *sqlalchemy ValueError*,please pass db param to Search
-  #+BEGIN_SRC python
+   if raise *sqlalchemy ValueError*,please pass db param to Search
+   #+BEGIN_SRC python
   db = SQLalchemy()
   search = Search(db=db)
-  #+END_SRC
+   #+END_SRC
 
 
 *** Create_index
-   #+BEGIN_SRC sh
+    #+BEGIN_SRC sh
    search.create_index()
-   #+END_SRC
+    #+END_SRC
 
 *** Update_index
     #+BEGIN_SRC python
@@ -89,16 +93,36 @@
       search = Search(analyzer=ChineseAnalyzer())
     #+END_SRC
 
+    or use =__msearch_analyzer__= for special model
+    #+BEGIN_SRC python
+      class Post(db.Model):
+          __tablename__ = 'post'
+          __searchable__ = ['title', 'content', 'tag.name']
+          __msearch_analyzer__ = ChineseAnalyzer()
+    #+END_SRC
+
+*** Custom schema
+    #+BEGIN_SRC python
+     from whoosh.fields import ID
+
+     class Post(db.Model):
+         __tablename__ = 'post'
+         __searchable__ = ['title', 'content', 'tag.name']
+         __msearch_schema__ = {'title': ID(stored=True, unique=True), 'content': 'text'}
+    #+END_SRC
+    
+    *Note:* if you use =hybrid_property=, default field type is =Text= unless set special =__msearch_schema__=
+
 ** Relate index
    for example
    #+BEGIN_SRC python
-     class Tag(db.Model, ModelSaveMixin):
+     class Tag(db.Model):
          __tablename__ = 'tag'
 
          id = db.Column(db.Integer, primary_key=True)
          name = db.Column(db.String(49))
 
-     class Post(db.Model, ModelSaveMixin):
+     class Post(db.Model):
          __tablename__ = 'post'
          __searchable__ = ['title', 'content', 'tag.name']
 

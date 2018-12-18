@@ -4,9 +4,9 @@
 # Copyright © 2017 jianglin
 # File Name: setup.py
 # Author: jianglin
-# Email: xiyang0807@gmail.com
+# Email: mail@honmaple.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update: Friday 2018-06-15 10:29:40 (CST)
+# Last Update: Tuesday 2018-12-18 11:20:47 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -15,11 +15,11 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.1.7',
+    version='0.1.8',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',
-    author_email='xiyang0807@gmail.com',
+    author_email='mail@honmaple.com',
     description='full text search with whoosh for flask',
     long_description='Please visit https://github.com/honmaple/flask-msearch',
     packages=['flask_msearch'],

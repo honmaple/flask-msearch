@@ -4,9 +4,9 @@
 # Copyright © 2017 jianglin
 # File Name: __init__.py
 # Author: jianglin
-# Email: xiyang0807@gmail.com
+# Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update: Monday 2018-05-09 10:35:32 (CST)
+# Last Update: Monday 2018-12-17 10:27:44 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -27,7 +27,7 @@ class Search(object):
             self.init_app(app)
 
     def init_app(self, app):
-        app.config.setdefault('MSEARCH_BACKEND', 'whoosh')
+        app.config.setdefault('MSEARCH_BACKEND', 'simple')
         msearch_backend = app.config['MSEARCH_BACKEND']
         if msearch_backend == 'simple':
             backend = import_string(

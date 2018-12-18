@@ -4,9 +4,9 @@
 # Copyright © 2017 jianglin
 # File Name: whoosh_backend.py
 # Author: jianglin
-# Email: xiyang0807@gmail.com
+# Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Friday 2018-06-15 10:27:17 (CST)
+# Last Update: Tuesday 2018-12-18 11:18:50 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -14,11 +14,10 @@ import os
 import sys
 
 import sqlalchemy
-from inspect import isclass
 from flask_sqlalchemy import models_committed
+from sqlalchemy import types
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
-from sqlalchemy.types import Boolean, Date, DateTime, Float, Integer, Text
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
@@ -37,18 +36,39 @@ if sys.version_info[0] < 3:
 class Schema(object):
     def __init__(self, table, analyzer=None):
         self.table = table
-        self.analyzer = analyzer
+        self.analyzer = getattr(self.table, "__msearch_analyzer__", analyzer)
         self.schema = _Schema(**self.fields)
+
+    def fields_map(self, field_type):
+        type_map = {
+            'date': types.Date,
+            'datetime': types.DateTime,
+            'boolean': types.Boolean,
+            'integer': types.Integer,
+            'float': types.Float
+        }
+        if isinstance(field_type, str):
+            field_type = type_map.get(field_type, types.Text)
+
+        if field_type in (types.DateTime, types.Date):
+            return DATETIME(stored=True, sortable=True)
+        elif field_type == types.Integer:
+            return NUMERIC(stored=True, numtype=int)
+        elif field_type == types.Float:
+            return NUMERIC(stored=True, numtype=float)
+        elif field_type == types.Boolean:
+            return BOOLEAN(stored=True)
+        return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
 
     @property
     def fields(self):
         model = self.table
-        schema_fields = {'id': ID(stored=True, unique=True)}
-        searchable = set(model.__searchable__)
-        analyzer = getattr(model, '__msearch_analyzer__') if hasattr(
-            model, '__msearch_analyzer__') else self.analyzer
+        schema_fields = {DEFAULT_PRIMARY_KEY: ID(stored=True, unique=True)}
+
+        searchable = set(getattr(model, "__searchable__", []))
         primary_keys = [key.name for key in inspect(model).primary_key]
 
+        schema = getattr(model, "__msearch_schema__", dict())
         for field in searchable:
             if '.' in field:
                 fields = field.split('.')
@@ -57,36 +77,26 @@ class Schema(object):
                     fields[1])
             else:
                 field_attr = getattr(model, field)
+
+            if field in schema:
+                field_type = schema[field]
+                if isinstance(field_type, str):
+                    schema_fields[field] = self.fields_map(field_type)
+                else:
+                    schema_fields[field] = field_type
+                continue
+
             if hasattr(field_attr, 'descriptor') and isinstance(
                     field_attr.descriptor, hybrid_property):
-                field_type = Text
-                type_hint = getattr(field_attr, 'type_hint', None)
-                if type_hint is not None:
-                    type_hint_map = {
-                        'date': Date,
-                        'datetime': DateTime,
-                        'boolean': Boolean,
-                        'integer': Integer,
-                        'float': Float
-                    }
-                    field_type = type_hint if isclass(
-                        type_hint) else type_hint_map.get(
-                            type_hint.lower(), Text)
-            else:
-                field_type = field_attr.property.columns[0].type
+                schema_fields[field] = self.fields_map("text")
+                continue
+
             if field in primary_keys:
                 schema_fields[field] = ID(stored=True, unique=True)
-            elif field_type in (DateTime, Date):
-                schema_fields[field] = DATETIME(stored=True, sortable=True)
-            elif field_type == Integer:
-                schema_fields[field] = NUMERIC(stored=True, numtype=int)
-            elif field_type == Float:
-                schema_fields[field] = NUMERIC(stored=True, numtype=float)
-            elif field_type == Boolean:
-                schema_fields[field] = BOOLEAN(stored=True)
-            else:
-                schema_fields[field] = TEXT(
-                    stored=True, analyzer=analyzer, sortable=False)
+                continue
+
+            field_type = field_attr.property.columns[0].type
+            schema_fields[field] = self.fields_map(field_type)
         return schema_fields
 
 
@@ -104,11 +114,7 @@ class Index(object):
             return whoosh_index.open_dir(ix_path)
         if not os.path.exists(ix_path):
             os.makedirs(ix_path)
-        if hasattr(self.table, '__msearch_schema__'):
-            schema = getattr(self.table, '__msearch_schema__')
-        else:
-            schema = self.schema
-        return whoosh_index.create_in(ix_path, schema)
+        return whoosh_index.create_in(ix_path, self.schema)
 
     @property
     def index(self):
@@ -188,7 +194,7 @@ class WhooshSearch(BaseBackend):
         table = instance.__class__
         ix = self._index(table)
         searchable = ix.fields
-        attrs = {'id': str(instance.id)}
+        attrs = {DEFAULT_PRIMARY_KEY: str(instance.id)}
 
         for field in searchable:
             if '.' in field:
@@ -197,7 +203,7 @@ class WhooshSearch(BaseBackend):
                 attrs[field] = str(getattr(instance, field))
         if delete:
             logger.debug('deleting index: {}'.format(instance))
-            ix.delete(fieldname='id', text=str(instance.id))
+            ix.delete(fieldname=DEFAULT_PRIMARY_KEY, text=str(instance.id))
         elif update:
             logger.debug('updating index: {}'.format(instance))
             ix.update(**attrs)
@@ -211,7 +217,7 @@ class WhooshSearch(BaseBackend):
     def _fields(self, attr):
         return attr
 
-    def msearch(self, m, query, fields=None, limit=None, or_=False):
+    def msearch(self, m, query, fields=None, limit=None, or_=True):
         '''
         set limit make search faster
         '''
@@ -220,8 +226,7 @@ class WhooshSearch(BaseBackend):
             fields = ix.fields
         group = OrGroup if or_ else AndGroup
         parser = MultifieldParser(fields, ix.schema, group=group)
-        results = ix.search(parser.parse(query), limit=limit)
-        return results
+        return ix.search(parser.parse(query), limit=limit)
 
     def _query_class(self, q):
         _self = self

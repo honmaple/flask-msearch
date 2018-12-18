@@ -45,7 +45,7 @@ class SearchTestBase(unittest.TestCase):
             DEBUG = True
             TESTING = True
             MSEARCH_INDEX_NAME = mkdtemp()
-            # MSEARCH_BACKEND = 'whoosh'
+            MSEARCH_BACKEND = 'whoosh'
 
         self.app = Flask(__name__)
         self.app.config.from_object(TestConfig())

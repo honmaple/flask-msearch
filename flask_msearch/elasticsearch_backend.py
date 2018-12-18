@@ -4,9 +4,9 @@
 # Copyright © 2017 jianglin
 # File Name: elasticsearch_backend.py
 # Author: jianglin
-# Email: xiyang0807@gmail.com
+# Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Monday 2018-05-09 11:45:38 (CST)
+# Last Update: Tuesday 2018-12-18 10:59:36 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -21,29 +21,43 @@ class Schema(object):
         self.table = table
         self.analyzer = analyzer
 
+    def fields_map(self, field_type):
+        type_map = {
+            'date': types.Date,
+            'datetime': types.DateTime,
+            'boolean': types.Boolean,
+            'integer': types.Integer,
+            'float': types.Float,
+            'binary': types.Binary
+        }
+        if isinstance(field_type, str):
+            field_type = type_map.get(field_type, types.Text)
+
+        if field_type in (types.DateTime, types.Date):
+            return {'type': 'date'}
+        elif field_type == types.Integer:
+            return {'type': 'integer'}
+        elif field_type == types.Float:
+            return {'type': 'float'}
+        elif field_type == types.Boolean:
+            return {'type': 'boolean'}
+        elif field_type == types.Binary:
+            return {'type': 'binary'}
+        return {'type': 'text'}
+
     @property
     def fields(self):
         model = self.table
         schema_fields = {}
-        searchable = set(model.__searchable__)
+        searchable = set(getattr(model, "__searchable__", []))
         primary_keys = [key.name for key in inspect(model).primary_key]
         for field in searchable:
-            field_type = getattr(model, field).property.columns[0].type
             if field in primary_keys:
                 schema_fields[field] = {'type': 'keyword'}
-            elif field_type in (types.DateTime, types.Date):
-                schema_fields[field] = {'type': 'date'}
-            elif field_type == types.Integer:
-                schema_fields[field] = {'type': 'integer'}
-            elif field_type == types.Float:
-                schema_fields[field] = {'type': 'float'}
-            elif field_type == types.Boolean:
-                schema_fields[field] = {'type': 'boolean'}
-            elif field_type == types.Binary:
-                schema_fields[field] = {'type': 'binary'}
-            else:
-                schema_fields[field] = {'type': 'text'}
+                continue
 
+            field_type = getattr(model, field).property.columns[0].type
+            schema_fields[field] = self.fields_map(field_type)
         return schema_fields
 
 

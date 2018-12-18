@@ -44,8 +44,7 @@ class TestRelationSearch(TestMixin, SearchTestBase):
             # one to one
             tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'))
             tag = db.relationship(
-                Tag, backref=db.backref(
-                    'post', uselist=False), uselist=False)
+                Tag, backref=db.backref('post', uselist=False), uselist=False)
 
             def __repr__(self):
                 return '<Post:{}>'.format(self.title)
@@ -141,6 +140,7 @@ class TestHybridPropTypeHint(SearchTestBase):
         class Post(db.Model, ModelSaveMixin):
             __tablename__ = 'posts'
             __searchable__ = ['fts_int', 'fts_date']
+            __msearch_schema__ = {"fts_int": "integer", "fts_date": "date"}
 
             id = db.Column(db.Integer, primary_key=True)
             name = db.Column(db.String(20))
@@ -151,8 +151,6 @@ class TestHybridPropTypeHint(SearchTestBase):
             def fts_int(self):
                 return self.int1 + self.int2
 
-            fts_int.type_hint = 'integer'
-
             @fts_int.expression
             def fts_int(cls):
                 return db.func.sum(cls.int1, cls.int2)
@@ -161,8 +159,6 @@ class TestHybridPropTypeHint(SearchTestBase):
             def fts_date(self):
                 return max(
                     datetime.date(2017, 5, 4), datetime.date(2017, 5, 3))
-
-            fts_date.type_hint = 'date'
 
             @fts_date.expression
             def fts_date(cls):
