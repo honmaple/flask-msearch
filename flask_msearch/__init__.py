@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # **************************************************************************
-# Copyright © 2017 jianglin
+# Copyright © 2017-2019 jianglin
 # File Name: __init__.py
 # Author: jianglin
 # Email: mail@honmaple.com

@@ -15,7 +15,7 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.1.9',
+    version='0.2.0',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',

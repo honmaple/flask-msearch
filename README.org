@@ -1,5 +1,5 @@
 * flask-msearch
-  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.1.9-brightgreen.svg]]
+  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.2.0-brightgreen.svg]]
   [[https://python.org][https://img.shields.io/badge/python-2/3-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
   
@@ -10,8 +10,8 @@
    pip install flask-msearch
    # when MSEARCH_BACKEND = "whoosh"
    pip install whoosh blinker
-   # when MSEARCH_BACKEND = "elasticsearch"
-   pip install elasticsearch
+   # when MSEARCH_BACKEND = "elasticsearch", only for 6.x.x
+   pip install elasticsearch==6.3.1
    #+END_SRC
 
    Or alternatively, you can download the repository and install manually by doing:
@@ -40,17 +40,23 @@
          results = Post.query.msearch(keyword,fields=['title'],limit=20).filter(...)
          # or
          results = Post.query.filter(...).msearch(keyword,fields=['title'],limit=20).filter(...)
+         # elasticsearch
+         keyword = "title:book AND content:read"
+         # more syntax please visit https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+         results = Post.query.msearch(keyword,limit=20).filter(...)
          return ''
    #+END_SRC
 
 ** Config
 
    #+BEGIN_SRC python
-   MSEARCH_INDEX_NAME = 'msearch'
-   # simple,whoosh,elaticsearch, default is simple
-   MSEARCH_BACKEND = 'whoosh'
-   # auto create or update index
-   MSEARCH_ENABLE = True
+     # when backend is elasticsearch, MSEARCH_INDEX_NAME is unused
+     # flask-msearch will use table name as elasticsearch index name unless set __msearch_index__
+     MSEARCH_INDEX_NAME = 'msearch'
+     # simple,whoosh,elaticsearch, default is simple
+     MSEARCH_BACKEND = 'whoosh'
+     # auto create or update index
+     MSEARCH_ENABLE = True
    #+END_SRC
 
 ** Usage
@@ -59,6 +65,17 @@
      [...]
      search = Search()
      search.init_app(app)
+
+     class Post(db.Model):
+         __tablename__ = 'basic_posts'
+         __searchable__ = ['title', 'content']
+
+         id = db.Column(db.Integer, primary_key=True)
+         title = db.Column(db.String(49))
+         content = db.Column(db.Text)
+
+         def __repr__(self):
+             return '<Post:{}>'.format(self.title)
    #+END_SRC
 
    if raise *sqlalchemy ValueError*,please pass db param to Search
@@ -71,23 +88,29 @@
 *** Create_index
     #+BEGIN_SRC sh
    search.create_index()
+   search.create_index(Post)
     #+END_SRC
 
 *** Update_index
     #+BEGIN_SRC python
     search.update_index()
+    search.update_index(Post)
     # or
     search.create_index(update=True)
+    search.create_index(Post, update=True)
     #+END_SRC
 
 *** Delete_index
     #+BEGIN_SRC python
     search.delete_index()
+    search.delete_index(Post)
     # or
     search.create_index(delete=True)
+    search.create_index(Post, delete=True)
     #+END_SRC
 
 *** Custom Analyzer
+    *only for whoosh backend*
     #+BEGIN_SRC python
       from jieba.analyse import ChineseAnalyzer
       search = Search(analyzer=ChineseAnalyzer())
@@ -101,6 +124,15 @@
           __msearch_analyzer__ = ChineseAnalyzer()
     #+END_SRC
 
+*** Custom index name
+    If you want to set special index name for some model.
+    #+BEGIN_SRC python
+     class Post(db.Model):
+         __tablename__ = 'post'
+         __searchable__ = ['title', 'content', 'tag.name']
+         __msearch_index__ = "post111"
+    #+END_SRC
+    
 *** Custom schema
     #+BEGIN_SRC python
      from whoosh.fields import ID

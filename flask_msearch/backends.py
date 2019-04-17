@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # **************************************************************************
-# Copyright © 2017 jianglin
+# Copyright © 2017-2019 jianglin
 # File Name: backends.py
 # Author: jianglin
 # Email: mail@honmaple.com
@@ -10,6 +10,8 @@
 #          By:
 # Description:
 # **************************************************************************
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.inspection import inspect
 import logging
 import sys
 
@@ -29,6 +31,52 @@ def relation_column(instance, fields):
     if relation.lazy == 'dynamic':
         _field = _field.first()
     return getattr(_field, fields[1]) if _field else ''
+
+
+class BaseSchema(object):
+    def __init__(self, table):
+        self.table = table
+
+    def _fields(self):
+        return dict()
+
+    @property
+    def fields(self):
+        model = self.table
+        schema_fields = self._fields()
+        searchable = set(getattr(model, "__searchable__", []))
+        primary_keys = [key.name for key in inspect(model).primary_key]
+
+        schema = getattr(model, "__msearch_schema__", dict())
+        for field in searchable:
+            if '.' in field:
+                fields = field.split('.')
+                field_attr = getattr(
+                    getattr(model, fields[0]).property.mapper.class_,
+                    fields[1])
+            else:
+                field_attr = getattr(model, field)
+
+            if field in schema:
+                field_type = schema[field]
+                if isinstance(field_type, str):
+                    schema_fields[field] = self.fields_map(field_type)
+                else:
+                    schema_fields[field] = field_type
+                continue
+
+            if hasattr(field_attr, 'descriptor') and isinstance(
+                    field_attr.descriptor, hybrid_property):
+                schema_fields[field] = self.fields_map("text")
+                continue
+
+            if field in primary_keys:
+                schema_fields[field] = self.fields_map("primary")
+                continue
+
+            field_type = field_attr.property.columns[0].type
+            schema_fields[field] = self.fields_map(field_type)
+        return schema_fields
 
 
 class BaseBackend(object):

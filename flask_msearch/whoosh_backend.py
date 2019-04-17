@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # **************************************************************************
-# Copyright © 2017 jianglin
+# Copyright © 2017-2019 jianglin
 # File Name: whoosh_backend.py
 # Author: jianglin
 # Email: mail@honmaple.com
@@ -16,14 +16,12 @@ import sys
 import sqlalchemy
 from flask_sqlalchemy import models_committed
 from sqlalchemy import types
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.inspection import inspect
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
-from .backends import BaseBackend, logger, relation_column
+from .backends import BaseBackend, BaseSchema, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'msearch'
 DEFAULT_ANALYZER = StemmingAnalyzer()
@@ -33,13 +31,15 @@ if sys.version_info[0] < 3:
     str = unicode
 
 
-class Schema(object):
+class Schema(BaseSchema):
     def __init__(self, table, analyzer=None):
         self.table = table
         self.analyzer = getattr(self.table, "__msearch_analyzer__", analyzer)
         self.schema = _Schema(**self.fields)
 
     def fields_map(self, field_type):
+        if field_type == "primary":
+            return ID(stored=True, unique=True)
         type_map = {
             'date': types.Date,
             'datetime': types.DateTime,
@@ -60,44 +60,8 @@ class Schema(object):
             return BOOLEAN(stored=True)
         return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
 
-    @property
-    def fields(self):
-        model = self.table
-        schema_fields = {DEFAULT_PRIMARY_KEY: ID(stored=True, unique=True)}
-
-        searchable = set(getattr(model, "__searchable__", []))
-        primary_keys = [key.name for key in inspect(model).primary_key]
-
-        schema = getattr(model, "__msearch_schema__", dict())
-        for field in searchable:
-            if '.' in field:
-                fields = field.split('.')
-                field_attr = getattr(
-                    getattr(model, fields[0]).property.mapper.class_,
-                    fields[1])
-            else:
-                field_attr = getattr(model, field)
-
-            if field in schema:
-                field_type = schema[field]
-                if isinstance(field_type, str):
-                    schema_fields[field] = self.fields_map(field_type)
-                else:
-                    schema_fields[field] = field_type
-                continue
-
-            if hasattr(field_attr, 'descriptor') and isinstance(
-                    field_attr.descriptor, hybrid_property):
-                schema_fields[field] = self.fields_map("text")
-                continue
-
-            if field in primary_keys:
-                schema_fields[field] = ID(stored=True, unique=True)
-                continue
-
-            field_type = field_attr.property.columns[0].type
-            schema_fields[field] = self.fields_map(field_type)
-        return schema_fields
+    def _fields(self):
+        return {DEFAULT_PRIMARY_KEY: ID(stored=True, unique=True)}
 
 
 class Index(object):
@@ -169,11 +133,15 @@ class WhooshSearch(BaseBackend):
         '''
         get index
         '''
+        index_name = self.index_name
+        if hasattr(model, "__msearch_index__"):
+            index_name = model.__msearch_index__
+
         name = model
         if not isinstance(model, str):
             name = model.__table__.name
         if name not in self._indexs:
-            self._indexs[name] = Index(self.index_name, model, self.analyzer)
+            self._indexs[name] = Index(index_name, model, self.analyzer)
         return self._indexs[name]
 
     def create_one_index(self,
