@@ -21,7 +21,6 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
-from whoosh.query import FuzzyTerm
 from .backends import BaseBackend, BaseSchema, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'msearch'
@@ -118,10 +117,6 @@ class Index(object):
     def search(self, *args, **kwargs):
         return self._client.searcher().search(*args, **kwargs)
 
-class MyFuzzyTerm(FuzzyTerm):
-     def __init__(self, fieldname, text, boost=1.0, maxdist=3, prefixlength=1, constantscore=True):
-         super(MyFuzzyTerm, self).__init__(fieldname, text, boost, maxdist, prefixlength, constantscore)
-
 
 class WhooshSearch(BaseBackend):
     def init_app(self, app):
@@ -198,6 +193,11 @@ class WhooshSearch(BaseBackend):
         if fields is None:
             fields = ix.fields
         group = OrGroup if or_ else AndGroup
+        termclass = (
+            termclass
+            if termclass
+            else getattr(m, "__msearch_termclass__", None)
+        )
         termclass = dict(termclass=termclass) if termclass else {}
         parser = MultifieldParser(fields, ix.schema, group=group, **termclass)
         return ix.search(parser.parse(query), limit=limit)

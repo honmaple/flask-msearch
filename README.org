@@ -109,6 +109,24 @@
     search.create_index(Post, delete=True)
     #+END_SRC
 
+*** Custom termclass
+    *only for whoosh backend*
+    #+BEGIN_SRC python
+        from whoosh.query import FuzzyTerm
+        users = User.query.msearch(
+            "test", fields=["name", "username"], limit=20, termclass=FuzzyTerm
+        ).all()
+    #+END_SRC
+
+    or use =__msearch_termclass__= for model
+    #+BEGIN_SRC python
+      from whoosh.query import FuzzyTerm
+      class Post(db.Model):
+          __tablename__ = 'post'
+          __searchable__ = ['title', 'content', 'tag.name']
+          __msearch_termclass__ = FuzzyTerm
+    #+END_SRC
+
 *** Custom Analyzer
     *only for whoosh backend*
     #+BEGIN_SRC python

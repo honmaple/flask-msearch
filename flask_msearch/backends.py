@@ -103,9 +103,9 @@ class BaseBackend(object):
         _self = self
 
         class Query(q):
-            def msearch(self, query, fields=None, limit=None, or_=False, termclass=None):
+            def msearch(self, query, fields=None, limit=None, or_=False):
                 model = self._mapper_zero().class_
-                return _self.msearch(model, query, fields, limit, or_, termclass)
+                return _self.msearch(model, query, fields, limit, or_)
 
         return Query
 
