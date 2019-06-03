@@ -21,6 +21,7 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
+from whoosh.query import FuzzyTerm
 from .backends import BaseBackend, BaseSchema, logger, relation_column
 
 DEFAULT_WHOOSH_INDEX_NAME = 'msearch'
@@ -117,6 +118,10 @@ class Index(object):
     def search(self, *args, **kwargs):
         return self._client.searcher().search(*args, **kwargs)
 
+class MyFuzzyTerm(FuzzyTerm):
+     def __init__(self, fieldname, text, boost=1.0, maxdist=3, prefixlength=1, constantscore=True):
+         super(MyFuzzyTerm, self).__init__(fieldname, text, boost, maxdist, prefixlength, constantscore)
+
 
 class WhooshSearch(BaseBackend):
     def init_app(self, app):
@@ -185,7 +190,7 @@ class WhooshSearch(BaseBackend):
     def _fields(self, attr):
         return attr
 
-    def msearch(self, m, query, fields=None, limit=None, or_=True):
+    def msearch(self, m, query, fields=None, limit=None, or_=True, termclass=None):
         '''
         set limit make search faster
         '''
@@ -193,7 +198,8 @@ class WhooshSearch(BaseBackend):
         if fields is None:
             fields = ix.fields
         group = OrGroup if or_ else AndGroup
-        parser = MultifieldParser(fields, ix.schema, group=group)
+        termclass = dict(termclass=termclass) if termclass else {}
+        parser = MultifieldParser(fields, ix.schema, group=group, **termclass)
         return ix.search(parser.parse(query), limit=limit)
 
     def _query_class(self, q):
@@ -206,9 +212,9 @@ class WhooshSearch(BaseBackend):
                 )
                 return self.msearch(query, fields, limit, or_)
 
-            def msearch(self, query, fields=None, limit=None, or_=False):
+            def msearch(self, query, fields=None, limit=None, or_=False, termclass=None):
                 model = self._mapper_zero().class_
-                results = _self.msearch(model, query, fields, limit, or_)
+                results = _self.msearch(model, query, fields, limit, or_, termclass=termclass)
                 if not results:
                     return self.filter(sqlalchemy.text('null'))
                 result_set = set()
