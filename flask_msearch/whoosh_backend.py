@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-06-05 22:32:08 (CST)
+# Last Update: Wednesday 2019-06-05 23:51:28 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -204,15 +204,20 @@ class WhooshSearch(BaseBackend):
     def _fields(self, instance, attr):
         return attr
 
-    def msearch(self, m, query, fields=None, limit=None, or_=True):
+    def msearch(self, m, query, fields=None, limit=None, or_=True, **kwargs):
         '''
         set limit make search faster
         '''
         ix = self.index(m)
         if fields is None:
             fields = ix.fields
+
+        def _parser(fieldnames, schema, group, **kwargs):
+            return MultifieldParser(fieldnames, schema, group=group, **kwargs)
+
         group = OrGroup if or_ else AndGroup
-        parser = MultifieldParser(fields, ix.schema, group=group)
+        parser = getattr(m, "__msearch_parser__",
+                         _parser(fields, ix.schema, group, **kwargs))
         return ix.search(parser.parse(query), limit=limit)
 
     def _query_class(self, q):
@@ -225,10 +230,22 @@ class WhooshSearch(BaseBackend):
                 )
                 return self.msearch(query, fields, limit, or_)
 
-            def msearch(self, query, fields=None, limit=None, or_=False):
+            def msearch(self,
+                        query,
+                        fields=None,
+                        limit=None,
+                        or_=False,
+                        **kwargs):
                 model = self._mapper_zero().class_
                 pk = _self.index(model).pk
-                results = _self.msearch(model, query, fields, limit, or_)
+                results = _self.msearch(
+                    model,
+                    query,
+                    fields,
+                    limit,
+                    or_,
+                    **kwargs,
+                )
                 if not results:
                     return self.filter(sqlalchemy.text('null'))
                 result_set = set()

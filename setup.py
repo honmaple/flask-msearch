@@ -6,16 +6,15 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update: Tuesday 2018-12-18 11:36:24 (CST)
+# Last Update: Wednesday 2019-06-05 23:48:19 (CST)
 #          By:
 # Description:
 # **************************************************************************
 from setuptools import setup
 
-
 setup(
     name='flask-msearch',
-    version='0.2.0',
+    version='0.2.1',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',
@@ -26,10 +25,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     platforms='any',
-    install_requires=[
-        'Flask',
-        'Flask-SQLAlchemy'
-    ],
+    install_requires=['Flask', 'Flask-SQLAlchemy'],
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
@@ -37,6 +33,5 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
-        'Topic :: Software Development :: Libraries :: Python Modules'
-    ]
-)
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ])
