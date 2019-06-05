@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2018-12-17 10:27:38 (CST)
+# Last Update: Wednesday 2019-06-05 22:30:35 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -34,21 +34,20 @@ def relation_column(instance, fields):
 
 
 class BaseSchema(object):
-    def __init__(self, table):
-        self.table = table
+    def __init__(self, index):
+        self.index = index
 
     def _fields(self):
         return dict()
 
     @property
     def fields(self):
-        model = self.table
+        model = self.index.model
         schema_fields = self._fields()
-        searchable = set(getattr(model, "__searchable__", []))
         primary_keys = [key.name for key in inspect(model).primary_key]
 
         schema = getattr(model, "__msearch_schema__", dict())
-        for field in searchable:
+        for field in self.index.searchable:
             if '.' in field:
                 fields = field.split('.')
                 field_attr = getattr(
@@ -87,10 +86,17 @@ class BaseBackend(object):
             from jieba.analyse import ChineseAnalyzer
             search = Search(analyzer = ChineseAnalyzer)
         """
+        self._indexs = dict()
         self.db = db
         self.analyzer = analyzer
         if app is not None:
             self.init_app(app)
+
+    def _setdefault(self, app):
+        app.config.setdefault("MSEARCH_PRIMARY_KEY", "id")
+        app.config.setdefault("MSEARCH_INDEX_NAME", "msearch")
+        app.config.setdefault("MSEARCH_ANALYZER", None)
+        app.config.setdefault("MSEARCH_ENABLE", True)
 
     def init_app(self, app):
         self.app = app
@@ -116,7 +122,7 @@ class BaseBackend(object):
                      yield_per=100):
         if model == '__all__':
             return self.create_all_index(update, delete)
-        ix = self._index(model)
+        ix = self.index(model)
         instances = model.query.enable_eagerloads(False).yield_per(yield_per)
         for instance in instances:
             self.create_one_index(instance, update, delete, False)
@@ -168,10 +174,10 @@ class BaseBackend(object):
                     attrs = getattr(instance, p)(delete=True)
                 else:
                     attrs = getattr(instance, p)()
-                ix = self._index(attrs.pop('_index'))
+                ix = self.index(attrs.pop('_index'))
                 if attrs['attrs']:
                     for attr in attrs['attrs']:
-                        ix.update(**self._fields(attr))
+                        ix.update(**self._fields(instance, attr))
                     ix.commit()
 
     def whoosh_search(self, m, query, fields=None, limit=None, or_=False):

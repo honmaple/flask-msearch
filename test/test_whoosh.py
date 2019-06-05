@@ -190,9 +190,48 @@ class TestHybridPropTypeHint(SearchTestBase):
             self.assertEqual(len(results), 10)
 
 
+class TestPrimaryKey(TestMixin, SearchTestBase):
+    def setUp(self):
+        class TestConfig(object):
+            SQLALCHEMY_TRACK_MODIFICATIONS = True
+            SQLALCHEMY_DATABASE_URI = 'sqlite://'
+            DEBUG = True
+            TESTING = True
+            MSEARCH_INDEX_NAME = mkdtemp()
+            MSEARCH_BACKEND = 'whoosh'
+            MSEARCH_PRIMARY_KEY = 'pk'
+
+        self.app = Flask(__name__)
+        self.app.config.from_object(TestConfig())
+        self.db = SQLAlchemy(self.app)
+        self.search = Search(self.app, db=self.db)
+
+        db = self.db
+
+        class Post1(db.Model, ModelSaveMixin):
+            __tablename__ = 'primary_posts'
+            __searchable__ = ['title', 'content']
+
+            pk = db.Column(db.Integer, primary_key=True)
+            title = db.Column(db.String(49))
+            content = db.Column(db.Text)
+
+            def __repr__(self):
+                return '<Post:{}>'.format(self.title)
+
+            def save(self, db):
+                if not self.pk:
+                    db.session.add(self)
+                db.session.commit()
+
+        self.Post = Post1
+        self.init_data()
+
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames([
         'test_whoosh.TestSearch',
+        # 'test_whoosh.TestPrimaryKey',
         'test_whoosh.TestRelationSearch',
         'test_whoosh.TestSearchHybridProp',
         'test_whoosh.TestHybridPropTypeHint',

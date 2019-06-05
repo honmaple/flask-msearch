@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Tuesday 2018-12-18 10:59:36 (CST)
+# Last Update: Wednesday 2019-06-05 23:10:35 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -48,10 +48,29 @@ class Schema(BaseSchema):
 
 # https://medium.com/@federicopanini/elasticsearch-6-0-removal-of-mapping-types-526a67ff772
 class Index(object):
-    def __init__(self, client, name, doc_type):
+    def __init__(self, client, model, doc_type, pk, name):
+        '''
+        global index name do nothing, must create different index name
+        '''
         self._client = client
-        self.name = name
-        self.doc_type = doc_type
+        self.model = model
+        self.doc_type = getattr(
+            model,
+            "__msearch_index__",
+            doc_type,
+        )
+        self.pk = getattr(
+            model,
+            "__msearch_primary_key__",
+            pk,
+        )
+        self.searchable = set(
+            getattr(
+                model,
+                "__msearch__",
+                getattr(model, "__searchable__", []),
+            ))
+        self.name = self.doc_type
         self.init()
 
     def init(self):
@@ -87,10 +106,11 @@ class Index(object):
 
 class ElasticSearch(BaseBackend):
     def init_app(self, app):
-        self._indexs = {}
-        self.index_name = app.config.get('MSEARCH_INDEX_NAME', 'msearch')
+        self._setdefault(app)
         self._client = Elasticsearch(**app.config.get('ELASTICSEARCH', {}))
-        if app.config.get('MSEARCH_ENABLE', True):
+        self.pk = app.config["MSEARCH_PRIMARY_KEY"]
+        self.index_name = app.config["MSEARCH_INDEX_NAME"]
+        if app.config["MSEARCH_ENABLE"]:
             models_committed.connect(self._index_signal)
         super(ElasticSearch, self).init_app(app)
 
@@ -105,51 +125,51 @@ class ElasticSearch(BaseBackend):
                          commit=True):
         if update and delete:
             raise ValueError("update and delete can't work togther")
-        table = instance.__class__
-        searchable = table.__searchable__
-        ix = self._index(table)
+        ix = self.index(instance.__class__)
+        pk = ix.pk
+        pkv = getattr(instance, pk)
         attrs = dict()
-        for field in searchable:
+        for field in ix.searchable:
             if '.' in field:
                 attrs[field] = str(relation_column(instance, field.split('.')))
             else:
                 attrs[field] = str(getattr(instance, field))
         if delete:
             logger.debug('deleting index: {}'.format(instance))
-            r = ix.delete(id=instance.id)
+            r = ix.delete(**{pk: pkv})
         elif update:
             logger.debug('updating index: {}'.format(instance))
-            r = ix.update(id=instance.id, body={"doc": attrs})
+            r = ix.update(**{pk: pkv, "body": {"doc": attrs}})
         else:
             logger.debug('creating index: {}'.format(instance))
-            r = ix.create(id=instance.id, body=attrs)
+            r = ix.create(**{pk: pkv, "body": attrs})
         if commit:
             ix.commit()
         return r
 
-    def _index(self, model):
+    def index(self, model):
         '''
         Elasticsearch multi types has been removed
         Use multi index unless set __msearch_index__.
         '''
-        doc_type = model
-        if not isinstance(model, str):
-            doc_type = model.__table__.name
+        name = model.__table__.name
 
-        index_name = doc_type
-        if hasattr(model, "__msearch_index__"):
-            index_name = model.__msearch_index__
+        if name not in self._indexs:
+            self._indexs[name] = Index(
+                self._client,
+                model,
+                name,
+                self.pk,
+                self.index_name,
+            )
+        return self._indexs[name]
 
-        if doc_type not in self._indexs:
-            self._indexs[doc_type] = Index(self._client, index_name, doc_type)
-        return self._indexs[doc_type]
-
-    def _fields(self, attr):
-        return {'id': attr.pop('id'), 'body': {"doc": attr}}
+    def _fields(self, instance, attr):
+        ix = self.index(instance.__class__)
+        return {ix.pk: attr.pop(ix.pk), 'body': {"doc": attr}}
 
     def msearch(self, m, query=None):
-        ix = self._index(m)
-        return ix.search(body=query)
+        return self.index(m).search(body=query)
 
     def _query_class(self, q):
         _self = self
@@ -163,8 +183,9 @@ class ElasticSearch(BaseBackend):
                         params=dict()):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+                ix = _self.index(model)
                 query_string = {
-                    "fields": fields or model.__searchable__,
+                    "fields": fields or list(ix.searchable),
                     "query": query,
                     "default_operator": "OR" if or_ else "AND",
                     "analyze_wildcard": True
@@ -182,6 +203,6 @@ class ElasticSearch(BaseBackend):
                 result_set = set()
                 for i in results:
                     result_set.add(i["_id"])
-                return self.filter(getattr(model, "id").in_(result_set))
+                return self.filter(getattr(model, ix.pk).in_(result_set))
 
         return Query

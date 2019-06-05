@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Tuesday 2018-12-18 11:18:50 (CST)
+# Last Update: Wednesday 2019-06-05 22:32:08 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -23,18 +23,17 @@ from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 from .backends import BaseBackend, BaseSchema, logger, relation_column
 
-DEFAULT_WHOOSH_INDEX_NAME = 'msearch'
 DEFAULT_ANALYZER = StemmingAnalyzer()
-DEFAULT_PRIMARY_KEY = 'id'
 
 if sys.version_info[0] < 3:
     str = unicode
 
 
 class Schema(BaseSchema):
-    def __init__(self, table, analyzer=None):
-        self.table = table
-        self.analyzer = getattr(self.table, "__msearch_analyzer__", analyzer)
+    def __init__(self, index):
+        self.index = index
+        self.pk = index.pk
+        self.analyzer = index.analyzer
         self.schema = _Schema(**self.fields)
 
     def fields_map(self, field_type):
@@ -61,19 +60,40 @@ class Schema(BaseSchema):
         return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
 
     def _fields(self):
-        return {DEFAULT_PRIMARY_KEY: ID(stored=True, unique=True)}
+        return {self.pk: ID(stored=True, unique=True)}
 
 
 class Index(object):
-    def __init__(self, name, table, analyzer=None):
-        self.name = name
-        self.table = table
-        self._schema = Schema(table, analyzer)
+    def __init__(self, model, name, pk, analyzer, path=""):
+        self.model = model
+        self.path = path
+        self.name = getattr(
+            model,
+            "__msearch_index__",
+            name,
+        )
+        self.pk = getattr(
+            model,
+            "__msearch_primary_key__",
+            pk,
+        )
+        self.analyzer = getattr(
+            model,
+            "__msearch_analyzer__",
+            analyzer,
+        )
+        self.searchable = set(
+            getattr(
+                model,
+                "__msearch__",
+                getattr(model, "__searchable__", []),
+            ))
+        self._schema = Schema(self)
         self._writer = None
         self._client = self.init()
 
     def init(self):
-        ix_path = os.path.join(self.name, self.table.__table__.name)
+        ix_path = os.path.join(self.path, self.name)
         if whoosh_index.exists_in(ix_path):
             return whoosh_index.open_dir(ix_path)
         if not os.path.exists(ix_path):
@@ -120,28 +140,28 @@ class Index(object):
 
 class WhooshSearch(BaseBackend):
     def init_app(self, app):
-        self._indexs = {}
+        self._setdefault(app)
         if self.analyzer is None:
-            self.analyzer = DEFAULT_ANALYZER
-        self.index_name = app.config.get('MSEARCH_INDEX_NAME',
-                                         DEFAULT_WHOOSH_INDEX_NAME)
-        if app.config.get('MSEARCH_ENABLE', True):
+            self.analyzer = app.config["MSEARCH_ANALYZER"] or DEFAULT_ANALYZER
+        self.pk = app.config["MSEARCH_PRIMARY_KEY"]
+        self.index_name = app.config["MSEARCH_INDEX_NAME"]
+        if app.config["MSEARCH_ENABLE"]:
             models_committed.connect(self._index_signal)
         super(WhooshSearch, self).init_app(app)
 
-    def _index(self, model):
+    def index(self, model):
         '''
         get index
         '''
-        index_name = self.index_name
-        if hasattr(model, "__msearch_index__"):
-            index_name = model.__msearch_index__
-
-        name = model
-        if not isinstance(model, str):
-            name = model.__table__.name
+        name = model.__table__.name
         if name not in self._indexs:
-            self._indexs[name] = Index(index_name, model, self.analyzer)
+            self._indexs[name] = Index(
+                model,
+                name,
+                self.pk,
+                self.analyzer,
+                self.index_name,
+            )
         return self._indexs[name]
 
     def create_one_index(self,
@@ -159,19 +179,18 @@ class WhooshSearch(BaseBackend):
         '''
         if update and delete:
             raise ValueError("update and delete can't work togther")
-        table = instance.__class__
-        ix = self._index(table)
-        searchable = ix.fields
-        attrs = {DEFAULT_PRIMARY_KEY: str(instance.id)}
+        ix = self.index(instance.__class__)
+        pk = ix.pk
+        attrs = {pk: str(getattr(instance, pk))}
 
-        for field in searchable:
+        for field in ix.fields:
             if '.' in field:
                 attrs[field] = str(relation_column(instance, field.split('.')))
             else:
                 attrs[field] = str(getattr(instance, field))
         if delete:
             logger.debug('deleting index: {}'.format(instance))
-            ix.delete(fieldname=DEFAULT_PRIMARY_KEY, text=str(instance.id))
+            ix.delete(fieldname=pk, text=str(getattr(instance, pk)))
         elif update:
             logger.debug('updating index: {}'.format(instance))
             ix.update(**attrs)
@@ -182,14 +201,14 @@ class WhooshSearch(BaseBackend):
             ix.commit()
         return instance
 
-    def _fields(self, attr):
+    def _fields(self, instance, attr):
         return attr
 
     def msearch(self, m, query, fields=None, limit=None, or_=True):
         '''
         set limit make search faster
         '''
-        ix = self._index(m)
+        ix = self.index(m)
         if fields is None:
             fields = ix.fields
         group = OrGroup if or_ else AndGroup
@@ -208,13 +227,13 @@ class WhooshSearch(BaseBackend):
 
             def msearch(self, query, fields=None, limit=None, or_=False):
                 model = self._mapper_zero().class_
+                pk = _self.index(model).pk
                 results = _self.msearch(model, query, fields, limit, or_)
                 if not results:
                     return self.filter(sqlalchemy.text('null'))
                 result_set = set()
                 for i in results:
-                    result_set.add(i[DEFAULT_PRIMARY_KEY])
-                return self.filter(
-                    getattr(model, DEFAULT_PRIMARY_KEY).in_(result_set))
+                    result_set.add(i[pk])
+                return self.filter(getattr(model, pk).in_(result_set))
 
         return Query
