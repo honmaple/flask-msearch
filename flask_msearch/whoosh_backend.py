@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-06-05 23:51:28 (CST)
+# Last Update: Wednesday 2019-07-10 22:14:05 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -216,8 +216,12 @@ class WhooshSearch(BaseBackend):
             return MultifieldParser(fieldnames, schema, group=group, **kwargs)
 
         group = OrGroup if or_ else AndGroup
-        parser = getattr(m, "__msearch_parser__",
-                         _parser(fields, ix.schema, group, **kwargs))
+        parser = getattr(m, "__msearch_parser__", _parser)(
+            fields,
+            ix.schema,
+            group,
+            **kwargs,
+        )
         return ix.search(parser.parse(query), limit=limit)
 
     def _query_class(self, q):
