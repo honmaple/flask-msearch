@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-07-10 22:14:05 (CST)
+# Last Update: Wednesday 2019-09-11 00:27:32 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -14,13 +14,13 @@ import os
 import sys
 
 import sqlalchemy
-from flask_sqlalchemy import models_committed
 from sqlalchemy import types
 from whoosh import index as whoosh_index
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
+
 from .backends import BaseBackend, BaseSchema, logger, relation_column
 
 DEFAULT_ANALYZER = StemmingAnalyzer()
@@ -141,12 +141,11 @@ class Index(object):
 class WhooshSearch(BaseBackend):
     def init_app(self, app):
         self._setdefault(app)
+        self._signal_connect(app)
         if self.analyzer is None:
             self.analyzer = app.config["MSEARCH_ANALYZER"] or DEFAULT_ANALYZER
         self.pk = app.config["MSEARCH_PRIMARY_KEY"]
         self.index_name = app.config["MSEARCH_INDEX_NAME"]
-        if app.config["MSEARCH_ENABLE"]:
-            models_committed.connect(self._index_signal)
         super(WhooshSearch, self).init_app(app)
 
     def index(self, model):

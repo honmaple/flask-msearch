@@ -1,5 +1,5 @@
 * flask-msearch
-  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.2.2-brightgreen.svg]]
+  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.2.3-brightgreen.svg]]
   [[https://python.org][https://img.shields.io/badge/python-2/3-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
   
@@ -167,6 +167,26 @@
 
     *Note:* Only for =MSEARCH_BACKEND= is =whoosh=
 
+*** Custom index signal
+    *flask-msearch* uses flask signal to update index by default, if you want to use other asynchronous tools such as celey to update index, please set special =MSEARCH_INDEX_SIGNAL=
+    #+begin_src python
+      # app.py
+      app.config["MSEARCH_INDEX_SIGNAL"] = celery_signal
+      # or use string as variable
+      app.config["MSEARCH_INDEX_SIGNAL"] = "modulename.tasks.celery_signal"
+      search = Search(app)
+
+      # tasks.py
+      from flask_msearch.signal import default_signal
+
+      @celery.task(bind=True)
+      def celery_signal_task(self, backend, sender, changes):
+          default_signal(backend, sender, changes)
+          return str(self.request.id)
+
+      def celery_signal(backend, sender, changes):
+          return celery_signal_task.delay(backend, sender, changes)
+    #+end_src
 ** Relate index
    for example
    #+BEGIN_SRC python

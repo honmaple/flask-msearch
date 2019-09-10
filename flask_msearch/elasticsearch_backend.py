@@ -6,11 +6,10 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Wednesday 2019-06-05 23:10:35 (CST)
+# Last Update: Wednesday 2019-09-11 00:32:33 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from flask_sqlalchemy import models_committed
 from sqlalchemy import types
 from elasticsearch import Elasticsearch
 from .backends import BaseBackend, BaseSchema, logger, relation_column
@@ -107,11 +106,10 @@ class Index(object):
 class ElasticSearch(BaseBackend):
     def init_app(self, app):
         self._setdefault(app)
+        self._signal_connect(app)
         self._client = Elasticsearch(**app.config.get('ELASTICSEARCH', {}))
         self.pk = app.config["MSEARCH_PRIMARY_KEY"]
         self.index_name = app.config["MSEARCH_INDEX_NAME"]
-        if app.config["MSEARCH_ENABLE"]:
-            models_committed.connect(self._index_signal)
         super(ElasticSearch, self).init_app(app)
 
     @property

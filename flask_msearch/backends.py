@@ -6,14 +6,19 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-09-04 14:36:13 (CST)
+# Last Update: Wednesday 2019-09-11 01:18:18 (CST)
 #          By:
 # Description:
 # **************************************************************************
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.inspection import inspect
 import logging
 import sys
+
+from flask_sqlalchemy import models_committed
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.inspection import inspect
+from werkzeug import import_string
+
+from .signal import default_signal
 
 log_console = logging.StreamHandler(sys.stderr)
 logger = logging.getLogger(__name__)
@@ -86,6 +91,7 @@ class BaseBackend(object):
             from jieba.analyse import ChineseAnalyzer
             search = Search(analyzer = ChineseAnalyzer)
         """
+        self._signal = None
         self._indexs = dict()
         self.db = db
         self.analyzer = analyzer
@@ -95,8 +101,21 @@ class BaseBackend(object):
     def _setdefault(self, app):
         app.config.setdefault("MSEARCH_PRIMARY_KEY", "id")
         app.config.setdefault("MSEARCH_INDEX_NAME", "msearch")
+        app.config.setdefault("MSEARCH_INDEX_SIGNAL", default_signal)
         app.config.setdefault("MSEARCH_ANALYZER", None)
         app.config.setdefault("MSEARCH_ENABLE", True)
+
+    def _signal_connect(self, app):
+        if app.config["MSEARCH_ENABLE"]:
+            signal = app.config["MSEARCH_INDEX_SIGNAL"]
+            if isinstance(signal, str):
+                self._signal = import_string(signal)
+            else:
+                self._signal = signal
+            models_committed.connect(self.index_signal)
+
+    def index_signal(self, sender, changes):
+        return self._signal(self, sender, changes)
 
     def init_app(self, app):
         self.app = app
@@ -155,29 +174,6 @@ class BaseBackend(object):
 
     def delete_index(self, model='__all__', yield_per=100):
         return self.create_index(model, delete=True, yield_per=yield_per)
-
-    def _index_signal(self, sender, changes):
-        for change in changes:
-            instance = change[0]
-            operation = change[1]
-            if hasattr(instance, '__searchable__'):
-                if operation == 'insert':
-                    self.create_one_index(instance)
-                elif operation == 'update':
-                    self.create_one_index(instance, update=True)
-                elif operation == 'delete':
-                    self.create_one_index(instance, delete=True)
-
-            prepare = [i for i in dir(instance) if i.startswith('msearch_')]
-
-            delete = True if operation == 'delete' else False
-            for p in prepare:
-                attrs = getattr(instance, p)(delete=delete)
-                ix = self.index(attrs.pop('_index'))
-                if attrs['attrs']:
-                    for attr in attrs['attrs']:
-                        ix.update(**self._fields(instance, attr))
-                    ix.commit()
 
     def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
         logger.warning(
