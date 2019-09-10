@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-06-05 22:30:35 (CST)
+# Last Update: Wednesday 2019-09-04 14:36:13 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -169,11 +169,10 @@ class BaseBackend(object):
                     self.create_one_index(instance, delete=True)
 
             prepare = [i for i in dir(instance) if i.startswith('msearch_')]
+
+            delete = True if operation == 'delete' else False
             for p in prepare:
-                if operation == 'delete':
-                    attrs = getattr(instance, p)(delete=True)
-                else:
-                    attrs = getattr(instance, p)()
+                attrs = getattr(instance, p)(delete=delete)
                 ix = self.index(attrs.pop('_index'))
                 if attrs['attrs']:
                     for attr in attrs['attrs']:

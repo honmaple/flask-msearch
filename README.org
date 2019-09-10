@@ -16,7 +16,7 @@
 
    Or alternatively, you can download the repository and install manually by doing:
    #+BEGIN_SRC sehll
-   git clone git@github.com:honmaple/flask-msearch.git
+   git clone https://github.com/honmaple/flask-msearch
    cd flask-msearch
    python setup.py install
    #+END_SRC
@@ -59,6 +59,10 @@
      MSEARCH_PRIMARY_KEY = 'id'
      # auto create or update index
      MSEARCH_ENABLE = True
+     # SQLALCHEMY_TRACK_MODIFICATIONS must be set to True when msearch auto index is enabled
+     SQLALCHEMY_TRACK_MODIFICATIONS = True
+     # when backend is elasticsearch
+     ELASTICSEARCH = {"hosts": ["127.0.0.1:9200"]}
    #+END_SRC
 
 ** Usage
@@ -205,3 +209,5 @@
              '_index': Post
          }
    #+END_SRC
+
+   
