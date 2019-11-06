@@ -23,10 +23,24 @@ class TestRelationSearch(TestMixin, SearchTestBase):
             name = db.Column(db.String(49))
 
             def msearch_post_tag(self, delete=False):
+                from sqlalchemy.sql import select
+                post = Post.__table__
+                sql = select([post.c.id]).where(post.c.tag_id == self.id)
+                return {
+                    'attrs': [{
+                        # id is Post's primary key
+                        'id': str(i[0]),
+                        'tag.name': self.name
+                    } for i in db.engine.execute(sql)],
+                    '_index': Post
+                }
+
+                # or use sql text
                 from sqlalchemy import text
                 sql = text('select id from post where tag_id=' + str(self.id))
                 return {
                     'attrs': [{
+                        # id is Post's primary key
                         'id': str(i[0]),
                         'tag.name': self.name
                     } for i in db.engine.execute(sql)],

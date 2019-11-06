@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2019-09-11 00:02:50 (CST)
-# Last Update: Wednesday 2019-09-11 01:23:50 (CST)
+# Last Update: Wednesday 2019-11-06 09:33:02 (CST)
 #          By:
 # Description:
 # ********************************************************************************
@@ -52,7 +52,7 @@ def default_signal(backend, sender, changes):
             ix = backend.index(attrs.pop('_index'))
             if attrs['attrs']:
                 for attr in attrs['attrs']:
-                    ix.update(**backend._fields(instance, attr))
+                    ix.update(**backend._fields(ix, attr))
                 ix.commit()
 
 

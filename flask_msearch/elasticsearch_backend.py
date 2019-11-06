@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Wednesday 2019-09-11 00:32:33 (CST)
+# Last Update: Wednesday 2019-11-06 09:32:32 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -162,9 +162,8 @@ class ElasticSearch(BaseBackend):
             )
         return self._indexs[name]
 
-    def _fields(self, instance, attr):
-        ix = self.index(instance.__class__)
-        return {ix.pk: attr.pop(ix.pk), 'body': {"doc": attr}}
+    def _fields(self, index, attr):
+        return {index.pk: attr.pop(index.pk), 'body': {"doc": attr}}
 
     def msearch(self, m, query=None):
         return self.index(m).search(body=query)

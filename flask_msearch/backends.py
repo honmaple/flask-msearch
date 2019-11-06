@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-09-11 01:18:18 (CST)
+# Last Update: Wednesday 2019-11-06 09:39:25 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -20,10 +20,9 @@ from werkzeug import import_string
 
 from .signal import default_signal
 
-log_console = logging.StreamHandler(sys.stderr)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logger.addHandler(log_console)
+logger.addHandler(logging.StreamHandler(sys.stderr))
 
 
 def relation_column(instance, fields):

@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-09-11 00:27:32 (CST)
+# Last Update: Wednesday 2019-11-06 09:32:13 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -200,7 +200,7 @@ class WhooshSearch(BaseBackend):
             ix.commit()
         return instance
 
-    def _fields(self, instance, attr):
+    def _fields(self, index, attr):
         return attr
 
     def msearch(self, m, query, fields=None, limit=None, or_=True, **kwargs):
