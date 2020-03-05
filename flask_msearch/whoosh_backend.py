@@ -49,13 +49,13 @@ class Schema(BaseSchema):
         if isinstance(field_type, str):
             field_type = type_map.get(field_type, types.Text)
 
-        if field_type in (types.DateTime, types.Date):
+        if field_type in (types.DateTime, types.Date) or isinstance(field_type, types.DateTime) or isinstance(field_type, types.Date):
             return DATETIME(stored=True, sortable=True)
-        elif field_type == types.Integer:
+        elif field_type == types.Integer or isinstance(field_type, types.Integer):
             return NUMERIC(stored=True, numtype=int)
-        elif field_type == types.Float:
+        elif field_type == types.Float or isinstance(field_type, types.Float):
             return NUMERIC(stored=True, numtype=float)
-        elif field_type == types.Boolean:
+        elif field_type == types.Boolean or isinstance(field_type, types.Boolean):
             return BOOLEAN(stored=True)
         return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
 
