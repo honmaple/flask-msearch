@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Wednesday 2019-11-06 09:32:32 (CST)
+# Last Update: Friday 2020-03-06 11:42:55 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -32,15 +32,18 @@ class Schema(BaseSchema):
         if isinstance(field_type, str):
             field_type = type_map.get(field_type, types.Text)
 
-        if field_type in (types.DateTime, types.Date):
+        if not isinstance(field_type, type):
+            return {'type': 'string'}
+
+        if issubclass(field_type, (types.DateTime, types.Date)):
             return {'type': 'date'}
-        elif field_type == types.Integer:
+        elif issubclass(field_type, types.Integer):
             return {'type': 'long'}
-        elif field_type == types.Float:
+        elif issubclass(field_type, types.Float):
             return {'type': 'float'}
-        elif field_type == types.Boolean:
+        elif issubclass(field_type, types.Boolean):
             return {'type': 'boolean'}
-        elif field_type == types.Binary:
+        elif issubclass(field_type, types.Binary):
             return {'type': 'binary'}
         return {'type': 'string'}
 

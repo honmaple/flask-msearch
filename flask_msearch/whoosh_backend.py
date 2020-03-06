@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Wednesday 2019-11-06 09:32:13 (CST)
+# Last Update: Friday 2020-03-06 11:42:12 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -49,13 +49,16 @@ class Schema(BaseSchema):
         if isinstance(field_type, str):
             field_type = type_map.get(field_type, types.Text)
 
-        if field_type in (types.DateTime, types.Date):
+        if not isinstance(field_type, type):
+            return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
+
+        if issubclass(field_type, (types.DateTime, types.Date)):
             return DATETIME(stored=True, sortable=True)
-        elif field_type == types.Integer:
+        elif issubclass(field_type, types.Integer):
             return NUMERIC(stored=True, numtype=int)
-        elif field_type == types.Float:
+        elif issubclass(field_type, types.Float):
             return NUMERIC(stored=True, numtype=float)
-        elif field_type == types.Boolean:
+        elif issubclass(field_type, types.Boolean):
             return BOOLEAN(stored=True)
         return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
 
