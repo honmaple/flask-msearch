@@ -16,7 +16,7 @@ from .backends import BaseBackend
 
 
 class SimpleSearch(BaseBackend):
-    def msearch(self, m, query, fields=None, limit=None, or_=True):
+    def msearch(self, m, query, fields=None, limit=None, or_=True, rank_order=False):
         if fields is None:
             fields = m.__searchable__
         f = []

@@ -241,6 +241,7 @@ class WhooshSearch(BaseBackend):
                         fields=None,
                         limit=None,
                         or_=False,
+                        rank_order=False,
                         **kwargs):
                 model = self._mapper_zero().class_
                 pk = _self.index(model).pk
@@ -257,6 +258,9 @@ class WhooshSearch(BaseBackend):
                 result_set = set()
                 for i in results:
                     result_set.add(i[pk])
-                return self.filter(getattr(model, pk).in_(result_set))
+                retsult_query = self.filter(getattr(model, pk).in_(result_set))
+                if rank_order:
+                    retsult_query = retsult_query.order_by(sqlalchemy.func.field(getattr(model, pk), *result_set))
+                return retsult_query
 
         return Query

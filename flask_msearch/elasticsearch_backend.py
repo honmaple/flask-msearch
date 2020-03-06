@@ -180,6 +180,7 @@ class ElasticSearch(BaseBackend):
                         fields=None,
                         limit=None,
                         or_=False,
+                        rank_order=False,
                         params=dict()):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
@@ -203,6 +204,9 @@ class ElasticSearch(BaseBackend):
                 result_set = set()
                 for i in results:
                     result_set.add(i["_id"])
-                return self.filter(getattr(model, ix.pk).in_(result_set))
+                retsult_query = self.filter(getattr(model, ix.pk).in_(result_set))
+                if rank_order:
+                    retsult_query = retsult_query.order_by(sqlalchemy.func.field(getattr(model, ix.pk), *result_set))
+                return retsult_query
 
         return Query
