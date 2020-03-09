@@ -272,8 +272,8 @@ if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames([
         'test_whoosh.TestSearch',
         # 'test_whoosh.TestPrimaryKey',
-        # 'test_whoosh.TestRelationSearch',
-        # 'test_whoosh.TestSearchHybridProp',
-        # 'test_whoosh.TestHybridPropTypeHint',
+        'test_whoosh.TestRelationSearch',
+        'test_whoosh.TestSearchHybridProp',
+        'test_whoosh.TestHybridPropTypeHint',
     ])
     unittest.TextTestRunner(verbosity=1).run(suite)
