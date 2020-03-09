@@ -10,6 +10,32 @@ class TestSearch(TestMixin, SearchTestBase):
 
         self.init_data()
 
+    def test_rank_order(self):
+        with self.app.test_request_context():
+            post1 = self.Post(title="buy car", content="result1")
+            post1.save(self.db)
+            post2 = self.Post(title="sale car", content="result2")
+            post2.save(self.db)
+            post3 = self.Post(title="tim sale car", content="result3")
+            post3.save(self.db)
+
+            results = self.Post.query.msearch('car', rank_order=False).all()
+            self.assertEqual(results[0].id, post1.id)
+
+            results = self.Post.query.msearch("'sale car' OR 'car'", rank_order=False).all()
+            self.assertEqual(results[0].id, post1.id)
+
+            results = self.Post.query.msearch("'sale car' OR 'car'", rank_order=True).all()
+            self.assertEqual(results[0].id, post2.id)
+            results = self.Post.query.msearch("'car' OR 'sale car'", rank_order=True).all()
+            self.assertEqual(results[0].id, post2.id)
+
+            results = self.Post.query.msearch("'sale car' OR 'car' OR 'tim sale car'", rank_order=False).all()
+            self.assertEqual(results[0].id, post1.id)
+
+            results = self.Post.query.msearch("'sale car' OR 'car' OR 'tim sale car'", rank_order=True).all()
+            self.assertEqual(results[0].id, post3.id)
+
 
 class TestRelationSearch(TestMixin, SearchTestBase):
     def setUp(self):
@@ -246,8 +272,8 @@ if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames([
         'test_whoosh.TestSearch',
         # 'test_whoosh.TestPrimaryKey',
-        'test_whoosh.TestRelationSearch',
-        'test_whoosh.TestSearchHybridProp',
-        'test_whoosh.TestHybridPropTypeHint',
+        # 'test_whoosh.TestRelationSearch',
+        # 'test_whoosh.TestSearchHybridProp',
+        # 'test_whoosh.TestHybridPropTypeHint',
     ])
     unittest.TextTestRunner(verbosity=1).run(suite)

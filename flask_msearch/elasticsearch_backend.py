@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Friday 2020-03-06 11:42:55 (CST)
+# Last Update: Monday 2020-03-09 16:45:36 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -33,7 +33,7 @@ class Schema(BaseSchema):
             field_type = type_map.get(field_type, types.Text)
 
         if not isinstance(field_type, type):
-            return {'type': 'string'}
+            field_type = field_type.__class__
 
         if issubclass(field_type, (types.DateTime, types.Date)):
             return {'type': 'date'}
@@ -180,7 +180,8 @@ class ElasticSearch(BaseBackend):
                         fields=None,
                         limit=None,
                         or_=False,
-                        params=dict()):
+                        rank_order=False,
+                        **kwargs):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
                 ix = _self.index(model)
@@ -190,7 +191,7 @@ class ElasticSearch(BaseBackend):
                     "default_operator": "OR" if or_ else "AND",
                     "analyze_wildcard": True
                 }
-                query_string.update(**params)
+                query_string.update(**kwargs)
                 query = {
                     "query": {
                         "query_string": query_string
@@ -203,6 +204,12 @@ class ElasticSearch(BaseBackend):
                 result_set = set()
                 for i in results:
                     result_set.add(i["_id"])
-                return self.filter(getattr(model, ix.pk).in_(result_set))
+                result_query = self.filter(getattr(model, ix.pk).in_(result_set))
+                if rank_order:
+                    result_query = result_query.order_by(
+                        sqlalchemy.sql.expression.case(
+                            {r["_id"]: index for index, r in enumerate(results)},
+                            value=getattr(model, ix.pk)))
+                return result_query
 
         return Query

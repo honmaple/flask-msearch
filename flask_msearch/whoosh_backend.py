@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Friday 2020-03-06 11:42:12 (CST)
+# Last Update: Monday 2020-03-09 16:44:49 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -50,7 +50,7 @@ class Schema(BaseSchema):
             field_type = type_map.get(field_type, types.Text)
 
         if not isinstance(field_type, type):
-            return TEXT(stored=True, analyzer=self.analyzer, sortable=False)
+            field_type = field_type.__class__
 
         if issubclass(field_type, (types.DateTime, types.Date)):
             return DATETIME(stored=True, sortable=True)
@@ -236,14 +236,16 @@ class WhooshSearch(BaseBackend):
                 )
                 return self.msearch(query, fields, limit, or_)
 
-            def msearch(self,
-                        query,
-                        fields=None,
-                        limit=None,
-                        or_=False,
-                        **kwargs):
+            def msearch(
+                    self,
+                    query,
+                    fields=None,
+                    limit=None,
+                    or_=False,
+                    rank_order=False,
+                    **kwargs):
                 model = self._mapper_zero().class_
-                pk = _self.index(model).pk
+                ix = _self.index(model)
                 results = _self.msearch(
                     model,
                     query,
@@ -256,7 +258,15 @@ class WhooshSearch(BaseBackend):
                     return self.filter(sqlalchemy.text('null'))
                 result_set = set()
                 for i in results:
-                    result_set.add(i[pk])
-                return self.filter(getattr(model, pk).in_(result_set))
+                    result_set.add(i[ix.pk])
+                result_query = self.filter(
+                    getattr(model, ix.pk).in_(result_set))
+                if rank_order:
+                    result_query = result_query.order_by(
+                        sqlalchemy.sql.expression.case(
+                            {r[ix.pk]: r.rank
+                             for r in results},
+                            value=getattr(model, ix.pk)))
+                return result_query
 
         return Query
