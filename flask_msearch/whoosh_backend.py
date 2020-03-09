@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # **************************************************************************
-# Copyright © 2017-2019 jianglin
+# Copyright © 2017-2020 jianglin
 # File Name: whoosh_backend.py
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2020-03-09 16:44:49 (CST)
+# Last Update: Monday 2020-03-09 16:49:20 (CST)
 #          By:
 # Description:
 # **************************************************************************

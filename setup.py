@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # **************************************************************************
-# Copyright © 2017 jianglin
+# Copyright © 2017-2020 jianglin
 # File Name: setup.py
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update: Friday 2020-03-06 11:48:16 (CST)
+# Last Update: Monday 2020-03-09 16:49:46 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -14,7 +14,7 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.2.5',
+    version='0.2.6',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',
