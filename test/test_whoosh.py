@@ -133,6 +133,22 @@ class TestRelationSearch(TestMixin, SearchTestBase):
             results = self.Post.query.msearch('tag', fields=['tag.name']).all()
             self.assertEqual(len(results), 2)
 
+            results = self.Post.query.msearch('changed', fields=['title']).all()
+            self.assertEqual(len(results), 0)
+
+            post2 = self.Post.query.filter(self.Post.id == post2.id).first()
+            post2.title = 'changed title'
+            self.db.session.commit()
+
+            results = self.Post.query.msearch('changed', fields=['title']).all()
+            self.assertEqual(len(results), 1)
+
+            post3 = self.Post(title=title1, content=content1, tag_id=tag1.id)
+            post3.save(self.db)
+
+            results = self.Post.query.msearch('tag', fields=['tag.name']).all()
+            self.assertEqual(len(results), 3)
+
 
 class TestSearchHybridProp(TestMixin, SearchTestBase):
     def setUp(self):
@@ -270,10 +286,10 @@ class TestPrimaryKey(TestMixin, SearchTestBase):
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames([
-        'test_whoosh.TestSearch',
+        # 'test_whoosh.TestSearch',
         # 'test_whoosh.TestPrimaryKey',
         'test_whoosh.TestRelationSearch',
-        'test_whoosh.TestSearchHybridProp',
-        'test_whoosh.TestHybridPropTypeHint',
+        # 'test_whoosh.TestSearchHybridProp',
+        # 'test_whoosh.TestHybridPropTypeHint',
     ])
     unittest.TextTestRunner(verbosity=1).run(suite)

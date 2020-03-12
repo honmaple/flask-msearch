@@ -13,7 +13,7 @@
 import logging
 import sys
 
-from flask_sqlalchemy import models_committed
+from flask_sqlalchemy import models_committed, before_models_committed
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from werkzeug import import_string
@@ -111,7 +111,17 @@ class BaseBackend(object):
                 self._signal = import_string(signal)
             else:
                 self._signal = signal
+            before_models_committed.connect(self._before_models_committed)
             models_committed.connect(self.index_signal)
+
+    def _before_models_committed(self, sender, changes):
+        self.db.session.flush()
+        for instance, operation in changes:
+            if hasattr(instance, '__searchable__'):
+                for field in getattr(instance, '__searchable__', []):
+                    if '.' in field:
+                        splits = field.split('.')
+                        getattr(instance, splits[0])
 
     def index_signal(self, sender, changes):
         return self._signal(self, sender, changes)
