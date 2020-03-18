@@ -10,7 +10,7 @@
 #          By:
 # Description:
 # **************************************************************************
-from werkzeug import import_string
+from werkzeug.utils import import_string
 
 
 class Search(object):
