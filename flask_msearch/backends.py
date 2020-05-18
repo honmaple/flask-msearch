@@ -6,23 +6,19 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2020-03-09 16:49:20 (CST)
+# Last Update: Monday 2020-05-18 23:06:43 (CST)
 #          By:
 # Description:
 # **************************************************************************
 import logging
-import sys
 
 from flask_sqlalchemy import models_committed
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from werkzeug.utils import import_string
+from flask.helpers import locked_cached_property
 
 from .signal import default_signal
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler(sys.stderr))
 
 
 def relation_column(instance, fields):
@@ -103,6 +99,7 @@ class BaseBackend(object):
         app.config.setdefault("MSEARCH_INDEX_SIGNAL", default_signal)
         app.config.setdefault("MSEARCH_ANALYZER", None)
         app.config.setdefault("MSEARCH_ENABLE", True)
+        app.config.setdefault("MSEARCH_LOGGER", logging.WARNING)
 
     def _signal_connect(self, app):
         if app.config["MSEARCH_ENABLE"]:
@@ -112,6 +109,13 @@ class BaseBackend(object):
             else:
                 self._signal = signal
             models_committed.connect(self.index_signal)
+
+    @locked_cached_property
+    def logger(self):
+        logger = logging.getLogger(__name__)
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(self.app.config["MSEARCH_LOGGER"])
+        return logger
 
     def index_signal(self, sender, changes):
         return self._signal(self, sender, changes)
@@ -175,7 +179,7 @@ class BaseBackend(object):
         return self.create_index(model, delete=True, yield_per=yield_per)
 
     def whoosh_search(self, m, query, fields=None, limit=None, or_=False):
-        logger.warning(
+        self.logger.warning(
             'whoosh_search has been replaced by msearch.please use msearch')
         return self.msearch(m, query, fields, limit, or_)
 

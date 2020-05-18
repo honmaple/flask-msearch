@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2020-03-09 16:49:20 (CST)
+# Last Update: Monday 2020-05-18 22:53:24 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -21,7 +21,7 @@ from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
-from .backends import BaseBackend, BaseSchema, logger, relation_column
+from .backends import BaseBackend, BaseSchema, relation_column
 
 DEFAULT_ANALYZER = StemmingAnalyzer()
 
@@ -191,13 +191,13 @@ class WhooshSearch(BaseBackend):
             else:
                 attrs[field] = str(getattr(instance, field))
         if delete:
-            logger.debug('deleting index: {}'.format(instance))
+            self.logger.debug('deleting index: {}'.format(instance))
             ix.delete(fieldname=pk, text=str(getattr(instance, pk)))
         elif update:
-            logger.debug('updating index: {}'.format(instance))
+            self.logger.debug('updating index: {}'.format(instance))
             ix.update(**attrs)
         else:
-            logger.debug('creating index: {}'.format(instance))
+            self.logger.debug('creating index: {}'.format(instance))
             ix.create(**attrs)
         if commit:
             ix.commit()
@@ -231,7 +231,7 @@ class WhooshSearch(BaseBackend):
 
         class Query(q):
             def whoosh_search(self, query, fields=None, limit=None, or_=False):
-                logger.warning(
+                self.logger.warning(
                     'whoosh_search has been replaced by msearch.please use msearch'
                 )
                 return self.msearch(query, fields, limit, or_)

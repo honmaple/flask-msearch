@@ -6,13 +6,13 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Monday 2020-03-09 16:49:20 (CST)
+# Last Update: Monday 2020-05-18 22:53:15 (CST)
 #          By:
 # Description:
 # **************************************************************************
 from sqlalchemy import types
 from elasticsearch import Elasticsearch
-from .backends import BaseBackend, BaseSchema, logger, relation_column
+from .backends import BaseBackend, BaseSchema,relation_column
 import sqlalchemy
 
 
@@ -136,13 +136,13 @@ class ElasticSearch(BaseBackend):
             else:
                 attrs[field] = str(getattr(instance, field))
         if delete:
-            logger.debug('deleting index: {}'.format(instance))
+            self.logger.debug('deleting index: {}'.format(instance))
             r = ix.delete(**{pk: pkv})
         elif update:
-            logger.debug('updating index: {}'.format(instance))
+            self.logger.debug('updating index: {}'.format(instance))
             r = ix.update(**{pk: pkv, "body": {"doc": attrs}})
         else:
-            logger.debug('creating index: {}'.format(instance))
+            self.logger.debug('creating index: {}'.format(instance))
             r = ix.create(**{pk: pkv, "body": attrs})
         if commit:
             ix.commit()

@@ -1,5 +1,5 @@
 * flask-msearch
-  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.2.7-brightgreen.svg]]
+  [[https://pypi.python.org/pypi/Flask-Msearch][https://img.shields.io/badge/pypi-v0.2.8-brightgreen.svg]]
   [[https://python.org][https://img.shields.io/badge/python-2/3-brightgreen.svg]]
   [[LICENSE][https://img.shields.io/badge/license-BSD-blue.svg]]
   
@@ -59,6 +59,8 @@
      MSEARCH_PRIMARY_KEY = 'id'
      # auto create or update index
      MSEARCH_ENABLE = True
+     # logger level, default is logging.WARNING
+     MSEARCH_LOGGER = logging.DEBUG
      # SQLALCHEMY_TRACK_MODIFICATIONS must be set to True when msearch auto index is enabled
      SQLALCHEMY_TRACK_MODIFICATIONS = True
      # when backend is elasticsearch

@@ -12,9 +12,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_msearch import Search
 from sqlalchemy.ext.hybrid import hybrid_property
 
-# do not clutter output with log entries
-logging.disable(logging.CRITICAL)
-
 # db = None
 
 titles = [
