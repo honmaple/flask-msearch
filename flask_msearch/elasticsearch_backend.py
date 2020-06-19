@@ -12,8 +12,14 @@
 # **************************************************************************
 from sqlalchemy import types
 from elasticsearch import Elasticsearch
-from .backends import BaseBackend, BaseSchema,relation_column
+from .backends import BaseBackend, BaseSchema, relation_column
 import sqlalchemy
+
+es = Elasticsearch()
+try:
+    es_version = es.info().get('version').get('number')
+except AttributeError:
+    es_version = '6'
 
 
 class Schema(BaseSchema):
@@ -38,14 +44,14 @@ class Schema(BaseSchema):
         if issubclass(field_type, (types.DateTime, types.Date)):
             return {'type': 'date'}
         elif issubclass(field_type, types.Integer):
-            return {'type': 'long'}
+            return {'type': 'integer'}
         elif issubclass(field_type, types.Float):
             return {'type': 'float'}
         elif issubclass(field_type, types.Boolean):
             return {'type': 'boolean'}
         elif issubclass(field_type, types.Binary):
             return {'type': 'binary'}
-        return {'type': 'string'}
+        return {'type': 'text'}
 
 
 # https://medium.com/@federicopanini/elasticsearch-6-0-removal-of-mapping-types-526a67ff772
@@ -77,28 +83,42 @@ class Index(object):
 
     def init(self):
         if not self._client.indices.exists(index=self.name):
-            self._client.indices.create(index=self.name)
+            schema = Schema(self)
+            mappings = {"mappings": {"properties": schema.fields}}
+            self._client.indices.create(index=self.name, body=mappings)
 
     def create(self, **kwargs):
         "Create document not create index."
-        kw = dict(index=self.name, doc_type=self.doc_type)
+        if es_version >= '6':
+            kw = dict(index=self.name)
+        else:
+            kw = dict(index=self.name, doc_type=self.doc_type)
         kw.update(**kwargs)
         return self._client.index(**kw)
 
     def update(self, **kwargs):
         "Update document not update index."
-        kw = dict(index=self.name, doc_type=self.doc_type, ignore=[404])
+        if es_version >= '6':
+            kw = dict(index=self.name, ignore=[404])
+        else:
+            kw = dict(index=self.name, doc_type=self.doc_type, ignore=[404])
         kw.update(**kwargs)
         return self._client.update(**kw)
 
     def delete(self, **kwargs):
         "Delete document not delete index."
-        kw = dict(index=self.name, doc_type=self.doc_type, ignore=[404])
+        if es_version >= '6':
+            kw = dict(index=self.name, ignore=[404])
+        else:
+            kw = dict(index=self.name, doc_type=self.doc_type, ignore=[404])
         kw.update(**kwargs)
         return self._client.delete(**kw)
 
     def search(self, **kwargs):
-        kw = dict(index=self.name, doc_type=self.doc_type)
+        if es_version >= '6':
+            kw = dict(index=self.name)
+        else:
+            kw = dict(index=self.name, doc_type=self.doc_type)
         kw.update(**kwargs)
         return self._client.search(**kw)
 
@@ -125,16 +145,16 @@ class ElasticSearch(BaseBackend):
                          delete=False,
                          commit=True):
         if update and delete:
-            raise ValueError("update and delete can't work togther")
+            raise ValueError("update and delete can't work together")
         ix = self.index(instance.__class__)
         pk = ix.pk
         pkv = getattr(instance, pk)
         attrs = dict()
         for field in ix.searchable:
             if '.' in field:
-                attrs[field] = str(relation_column(instance, field.split('.')))
+                attrs[field] = relation_column(instance, field.split('.'))
             else:
-                attrs[field] = str(getattr(instance, field))
+                attrs[field] = getattr(instance, field)
         if delete:
             self.logger.debug('deleting index: {}'.format(instance))
             r = ix.delete(**{pk: pkv})
@@ -181,6 +201,7 @@ class ElasticSearch(BaseBackend):
                         limit=None,
                         or_=False,
                         rank_order=False,
+                        distinct=None,
                         **kwargs):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
@@ -205,6 +226,8 @@ class ElasticSearch(BaseBackend):
                 for i in results:
                     result_set.add(i["_id"])
                 result_query = self.filter(getattr(model, ix.pk).in_(result_set))
+                if distinct is not None:
+                    result_query = result_query.distinct(getattr(model, distinct)).group_by(getattr(model, distinct))
                 if rank_order:
                     result_query = result_query.order_by(
                         sqlalchemy.sql.expression.case(

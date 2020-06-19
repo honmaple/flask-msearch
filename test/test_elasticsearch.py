@@ -6,8 +6,8 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2019-04-01 10:16:57 (CST)
-# Last Update: Monday 2020-05-18 22:32:10 (CST)
-#          By:
+# Last Update: Monday 2020-06-19 12:03:10 (CST)
+#          By: Gustavo Lepri <gustavolepri@gmail.com>
 # Description:
 # ********************************************************************************
 from test import (
@@ -69,21 +69,28 @@ class TestSearch(TestMixin, SearchTestBase):
                 title="this is a normal search", content="do FFFsearchfuzzy")
             post3.save(self.db)
 
+            post4 = self.Post(
+                title="this is a normal search", content="distinct search")
+            post4.save(self.db)
+
             results = self.Post.query.msearch('title:search').all()
+            self.assertEqual(len(results), 3)
+
+            results = self.Post.query.msearch('title:search', distinct='title').all()
             self.assertEqual(len(results), 2)
 
             results = self.Post.query.msearch('content:search').all()
-            self.assertEqual(len(results), 1)
+            self.assertEqual(len(results), 2)
 
             results = self.Post.query.msearch(
                 'title:search OR content:title').all()
-            self.assertEqual(len(results), 3)
+            self.assertEqual(len(results), 4)
 
             results = self.Post.query.msearch('*search').all()
-            self.assertEqual(len(results), 3)
+            self.assertEqual(len(results), 4)
 
             results = self.Post.query.msearch('search*').all()
-            self.assertEqual(len(results), 2)
+            self.assertEqual(len(results), 3)
 
 
 if __name__ == '__main__':
