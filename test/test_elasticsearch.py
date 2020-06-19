@@ -69,15 +69,8 @@ class TestSearch(TestMixin, SearchTestBase):
                 title="this is a normal search", content="do FFFsearchfuzzy")
             post3.save(self.db)
 
-            post4 = self.Post(
-                title="this is a normal search", content="distinct search")
-            post4.save(self.db)
-
             results = self.Post.query.msearch('title:search').all()
             self.assertEqual(len(results), 3)
-
-            results = self.Post.query.msearch('title:search', distinct='title').all()
-            self.assertEqual(len(results), 2)
 
             results = self.Post.query.msearch('content:search').all()
             self.assertEqual(len(results), 2)

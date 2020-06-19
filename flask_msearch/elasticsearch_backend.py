@@ -201,7 +201,6 @@ class ElasticSearch(BaseBackend):
                         limit=None,
                         or_=False,
                         rank_order=False,
-                        distinct=None,
                         **kwargs):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
@@ -226,8 +225,6 @@ class ElasticSearch(BaseBackend):
                 for i in results:
                     result_set.add(i["_id"])
                 result_query = self.filter(getattr(model, ix.pk).in_(result_set))
-                if distinct is not None:
-                    result_query = result_query.distinct(getattr(model, distinct)).group_by(getattr(model, distinct))
                 if rank_order:
                     result_query = result_query.order_by(
                         sqlalchemy.sql.expression.case(
