@@ -44,6 +44,8 @@
          keyword = "title:book AND content:read"
          # more syntax please visit https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
          results = Post.query.msearch(keyword,limit=20).filter(...)
+         # inform a distinct field to avoid repeated results
+         results = Post.query.msearch(keyword,limit=20,distinct='title').filter(...)
          return ''
    #+END_SRC
 
