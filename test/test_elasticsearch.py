@@ -43,11 +43,13 @@ class TestSearch(TestMixin, SearchTestBase):
 
         class Post(db.Model, ModelSaveMixin):
             __tablename__ = 'basic_posts'
-            __searchable__ = ['title', 'content']
+            __searchable__ = ['title', 'content', 'geo']
+            __msearch__geo__ = ['geo']
 
             id = db.Column(db.Integer, primary_key=True)
             title = db.Column(db.String(49))
             content = db.Column(db.Text)
+            geo = db.Column(db.String(255))
 
             def __repr__(self):
                 return '<Post:{}>'.format(self.title)
@@ -58,32 +60,38 @@ class TestSearch(TestMixin, SearchTestBase):
     def test_fuzzy_search(self):
         with self.app.test_request_context():
             post1 = self.Post(
-                title="this is a fuzzy search", content="do search")
+                title="this is a fuzzy search", content="do search", geo="m8umpccxt26m")
             post1.save(self.db)
 
             post2 = self.Post(
-                title="this is a fuzzysearch", content="normal title")
+                title="this is a fuzzysearch", content="normal title", geo="m8umpccxt26m")
             post2.save(self.db)
 
             post3 = self.Post(
-                title="this is a normal search", content="do FFFsearchfuzzy")
+                title="this is a normal search", content="do FFFsearchfuzzy", geo="f37p0hxhg382")
             post3.save(self.db)
 
             results = self.Post.query.msearch('title:search').all()
-            self.assertEqual(len(results), 3)
+            self.assertEqual(len(results), 2)
 
             results = self.Post.query.msearch('content:search').all()
-            self.assertEqual(len(results), 2)
+            self.assertEqual(len(results), 1)
 
             results = self.Post.query.msearch(
                 'title:search OR content:title').all()
-            self.assertEqual(len(results), 4)
+            self.assertEqual(len(results), 3)
 
             results = self.Post.query.msearch('*search').all()
-            self.assertEqual(len(results), 4)
+            self.assertEqual(len(results), 3)
 
             results = self.Post.query.msearch('search*').all()
-            self.assertEqual(len(results), 3)
+            self.assertEqual(len(results), 2)
+
+            results = self.Post.query.msearch('search*', geohash='f37p0hxhg382', geofield='geo').all()
+            self.assertEqual(len(results), 1)
+
+            results = self.Post.query.msearch('', geohash='m8umpccxt26m', geofield='geo').all()
+            self.assertEqual(len(results), 2)
 
 
 if __name__ == '__main__':
