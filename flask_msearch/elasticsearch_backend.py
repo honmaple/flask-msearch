@@ -23,6 +23,17 @@ except AttributeError:
 
 
 class Schema(BaseSchema):
+
+    def _fields(self):
+        # check if we have a geohash field
+        model = self.index.model
+        schema_fields = {}
+        if hasattr(model, '__msearch__geo__'):
+            geo = getattr(model, '__msearch__geo__')
+            for item in geo:
+                schema_fields[item] = {'type': 'geo_point'}
+        return schema_fields
+
     def fields_map(self, field_type):
         if field_type == "primary":
             return {'type': 'keyword'}
@@ -35,6 +46,7 @@ class Schema(BaseSchema):
             'float': types.Float,
             'binary': types.Binary
         }
+
         if isinstance(field_type, str):
             field_type = type_map.get(field_type, types.Text)
 
@@ -88,7 +100,7 @@ class Index(object):
             self._client.indices.create(index=self.name, body=mappings)
 
     def create(self, **kwargs):
-        "Create document not create index."
+        """Create document not create index."""
         if es_version >= '6':
             kw = dict(index=self.name)
         else:
@@ -97,7 +109,7 @@ class Index(object):
         return self._client.index(**kw)
 
     def update(self, **kwargs):
-        "Update document not update index."
+        """Update document not update index."""
         if es_version >= '6':
             kw = dict(index=self.name, ignore=[404])
         else:
@@ -106,7 +118,7 @@ class Index(object):
         return self._client.update(**kw)
 
     def delete(self, **kwargs):
-        "Delete document not delete index."
+        """Delete document not delete index."""
         if es_version >= '6':
             kw = dict(index=self.name, ignore=[404])
         else:
@@ -169,10 +181,10 @@ class ElasticSearch(BaseBackend):
         return r
 
     def index(self, model):
-        '''
+        """
         Elasticsearch multi types has been removed
         Use multi index unless set __msearch_index__.
-        '''
+        """
         name = model.__table__.name
 
         if name not in self._indexs:
@@ -201,6 +213,8 @@ class ElasticSearch(BaseBackend):
                         limit=None,
                         or_=False,
                         rank_order=False,
+                        geohash=None,
+                        geofield=None,
                         **kwargs):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
@@ -212,12 +226,45 @@ class ElasticSearch(BaseBackend):
                     "analyze_wildcard": True
                 }
                 query_string.update(**kwargs)
-                query = {
-                    "query": {
-                        "query_string": query_string
-                    },
-                    "size": limit or -1,
-                }
+                if geohash and geofield and query:
+                    query = {
+                        "query": {
+                            "bool": {
+                                "must": {
+                                    "query_string": query_string
+                                },
+                                "filter": {
+                                    "geo_distance": {
+                                        "distance": "50km",
+                                        geofield: geohash
+                                    },
+                                },
+                            },
+                        },
+                    }
+                elif geohash and geofield and not query:
+                    query = {
+                        "query": {
+                            "bool": {
+                                "must": {
+                                    "match_all": {}
+                                },
+                                "filter": {
+                                    "geo_distance": {
+                                        "distance": "50km",
+                                        geofield: geohash
+                                    },
+                                },
+                            },
+                        },
+                    }
+                else:
+                    query = {
+                        "query": {
+                            "query_string": query_string
+                        },
+                        "size": limit or -1,
+                    }
                 results = _self.msearch(model, query)['hits']['hits']
                 if not results:
                     return self.filter(sqlalchemy.text('null'))

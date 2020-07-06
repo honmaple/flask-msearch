@@ -49,6 +49,8 @@ class BaseSchema(object):
 
         schema = getattr(model, "__msearch_schema__", dict())
         for field in self.index.searchable:
+            if field in schema_fields:
+                continue
             if '.' in field:
                 fields = field.split('.')
                 field_attr = getattr(
