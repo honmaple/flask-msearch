@@ -90,6 +90,12 @@ class Index(object):
                 "__msearch__",
                 getattr(model, "__searchable__", []),
             ))
+        self.geo = set(
+            getattr(
+                model,
+                "__msearch__",
+                getattr(model, "__msearch__geo__", []),
+            ))
         self.name = self.doc_type
         self.init()
 
@@ -215,12 +221,16 @@ class ElasticSearch(BaseBackend):
                         rank_order=False,
                         geohash=None,
                         geofield=None,
+                        geodistance='10km',
                         **kwargs):
                 model = self._mapper_zero().class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
                 ix = _self.index(model)
+                # we need to remove geofield from query if exists
+                geo = ix.geo
+                searchable = ix.searchable
                 query_string = {
-                    "fields": fields or list(ix.searchable),
+                    "fields": fields or [field for field in searchable if field not in geo],
                     "query": query,
                     "default_operator": "OR" if or_ else "AND",
                     "analyze_wildcard": True
@@ -251,7 +261,7 @@ class ElasticSearch(BaseBackend):
                                 },
                                 "filter": {
                                     "geo_distance": {
-                                        "distance": "50km",
+                                        "distance": geodistance,
                                         geofield: geohash
                                     },
                                 },
