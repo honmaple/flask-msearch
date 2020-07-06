@@ -44,9 +44,27 @@
          keyword = "title:book AND content:read"
          # more syntax please visit https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
          results = Post.query.msearch(keyword,limit=20).filter(...)
-         # inform a distinct field to avoid repeated results
-         results = Post.query.msearch(keyword,limit=20,distinct='title').filter(...)
          return ''
+   #+END_SRC
+
+** Geo position
+    To use geo position it's necessary create a string field and store a geohash in it.
+
+   #+BEGIN_SRC python
+    # models.py
+     class Post(db.Model):
+         __tablename__ = 'post'
+         __searchable__ = ['title', 'content', 'geo']
+         __msearch__geo__ = ['geo']
+
+     # views.py
+     @app.route("/search")
+     def w_search():
+         keyword = request.args.get('keyword')
+         results = Post.query.msearch(keyword,fields=['title'],limit=20, geofield='geo', geohash='<geohash>', geodistance='10km').filter(...)
+         # or
+         results = Post.query.filter(...).msearch(keyword,fields=['title'],limit=20).filter(...)
+         # elasticsearch
    #+END_SRC
 
 ** Config
