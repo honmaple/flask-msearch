@@ -1,7 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from test import (TestMixin, SearchTestBase, mkdtemp, Flask, SQLAlchemy,
-                  Search, unittest, ModelSaveMixin, hybrid_property, datetime)
+from test import (
+    TestMixin, SearchTestBase, mkdtemp, Flask, SQLAlchemy, Search, unittest,
+    ModelSaveMixin, hybrid_property, datetime)
+
+from whoosh.analysis import RegexTokenizer, Filter
+from whoosh.fields import TEXT
+
+
+class CaseSensitivizer(Filter):
+    def __call__(self, tokens):
+        for t in tokens:
+            yield t
+            text = t.text.lower()
+            if text != t.text:
+                t.text = text
+                yield t
 
 
 class TestSearch(TestMixin, SearchTestBase):
@@ -22,19 +36,74 @@ class TestSearch(TestMixin, SearchTestBase):
             results = self.Post.query.msearch('car', rank_order=False).all()
             self.assertEqual(results[0].id, post1.id)
 
-            results = self.Post.query.msearch("'sale car' OR 'car'", rank_order=False).all()
+            results = self.Post.query.msearch(
+                "'sale car' OR 'car'", rank_order=False).all()
             self.assertEqual(results[0].id, post1.id)
 
-            results = self.Post.query.msearch("'sale car' OR 'car'", rank_order=True).all()
+            results = self.Post.query.msearch(
+                "'sale car' OR 'car'", rank_order=True).all()
             self.assertEqual(results[0].id, post2.id)
-            results = self.Post.query.msearch("'car' OR 'sale car'", rank_order=True).all()
+            results = self.Post.query.msearch(
+                "'car' OR 'sale car'", rank_order=True).all()
             self.assertEqual(results[0].id, post2.id)
 
-            results = self.Post.query.msearch("'sale car' OR 'car' OR 'tim sale car'", rank_order=False).all()
+            results = self.Post.query.msearch(
+                "'sale car' OR 'car' OR 'tim sale car'",
+                rank_order=False).all()
             self.assertEqual(results[0].id, post1.id)
 
-            results = self.Post.query.msearch("'sale car' OR 'car' OR 'tim sale car'", rank_order=True).all()
+            results = self.Post.query.msearch(
+                "'sale car' OR 'car' OR 'tim sale car'",
+                rank_order=True).all()
             self.assertEqual(results[0].id, post3.id)
+
+
+class TestCaseSearch(SearchTestBase):
+    def setUp(self):
+        super(TestCaseSearch, self).setUp()
+
+        db = self.db
+
+        class Post(db.Model, ModelSaveMixin):
+            __tablename__ = 'posts'
+            __searchable__ = ['title', 'content']
+            __msearch_schema__ = {
+                "title": TEXT(
+                    stored=True,
+                    analyzer=RegexTokenizer() | CaseSensitivizer(),
+                    sortable=False),
+                "content": TEXT(
+                    stored=True,
+                    analyzer=RegexTokenizer(),
+                    sortable=False,
+                )
+            }
+
+            id = db.Column(db.Integer, primary_key=True)
+            title = db.Column(db.String(49))
+            content = db.Column(db.Text)
+
+        self.Post = Post
+        with self.app.test_request_context():
+            db.create_all()
+            self.Post(
+                title="I have an apple",
+                content="aPPLe Test",
+            ).save(self.db)
+            self.Post(
+                title="I have an aPPLe",
+                content="apple Test",
+            ).save(self.db)
+
+    def test_case_search(self):
+        with self.app.test_request_context():
+            results = self.Post.query.msearch('apple', fields=['title']).all()
+            self.assertEqual(len(results), 2)
+            results = self.Post.query.msearch(
+                'apple', fields=['content']).all()
+            self.assertEqual(len(results), 1)
+            results = self.Post.query.msearch('apple').all()
+            self.assertEqual(len(results), 2)
 
 
 class TestRelationSearch(TestMixin, SearchTestBase):
@@ -53,11 +122,13 @@ class TestRelationSearch(TestMixin, SearchTestBase):
                 post = Post.__table__
                 sql = select([post.c.id]).where(post.c.tag_id == self.id)
                 return {
-                    'attrs': [{
-                        # id is Post's primary key
-                        'id': str(i[0]),
-                        'tag.name': self.name
-                    } for i in db.engine.execute(sql)],
+                    'attrs': [
+                        {
+                            # id is Post's primary key
+                            'id': str(i[0]),
+                            'tag.name': self.name
+                        } for i in db.engine.execute(sql)
+                    ],
                     '_index': Post
                 }
 
@@ -65,11 +136,13 @@ class TestRelationSearch(TestMixin, SearchTestBase):
                 from sqlalchemy import text
                 sql = text('select id from post where tag_id=' + str(self.id))
                 return {
-                    'attrs': [{
-                        # id is Post's primary key
-                        'id': str(i[0]),
-                        'tag.name': self.name
-                    } for i in db.engine.execute(sql)],
+                    'attrs': [
+                        {
+                            # id is Post's primary key
+                            'id': str(i[0]),
+                            'tag.name': self.name
+                        } for i in db.engine.execute(sql)
+                    ],
                     '_index': Post
                 }
 
@@ -269,11 +342,13 @@ class TestPrimaryKey(TestMixin, SearchTestBase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromNames([
-        'test_whoosh.TestSearch',
-        # 'test_whoosh.TestPrimaryKey',
-        'test_whoosh.TestRelationSearch',
-        'test_whoosh.TestSearchHybridProp',
-        'test_whoosh.TestHybridPropTypeHint',
-    ])
+    suite = unittest.TestLoader().loadTestsFromNames(
+        [
+            'test_whoosh.TestSearch',
+            # 'test_whoosh.TestPrimaryKey',
+            'test_whoosh.TestCaseSearch',
+            'test_whoosh.TestRelationSearch',
+            'test_whoosh.TestSearchHybridProp',
+            'test_whoosh.TestHybridPropTypeHint',
+        ])
     unittest.TextTestRunner(verbosity=1).run(suite)
