@@ -189,7 +189,7 @@
       def celery_signal(backend, sender, changes):
           return celery_signal_task.delay(backend, sender, changes)
     #+end_src
-** Relate index
+** Relate index(*Experimental*)
    for example
    #+BEGIN_SRC python
      class Tag(db.Model):
