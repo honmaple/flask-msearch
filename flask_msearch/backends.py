@@ -45,9 +45,12 @@ class BaseSchema(object):
         model = self.index.model
         schema_fields = self._fields()
         primary_keys = [key.name for key in inspect(model).primary_key]
+        fielddata = getattr(model, "__fielddata__", [])
 
         schema = getattr(model, "__msearch_schema__", dict())
         for field in self.index.searchable:
+            if field in schema_fields:
+                continue
             if '.' in field:
                 fields = field.split('.')
                 field_attr = getattr(
@@ -69,7 +72,7 @@ class BaseSchema(object):
                 schema_fields[field] = self.fields_map("text")
                 continue
 
-            if field in primary_keys:
+            if field in primary_keys or field in fielddata:
                 schema_fields[field] = self.fields_map("primary")
                 continue
 
