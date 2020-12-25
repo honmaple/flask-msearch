@@ -85,6 +85,9 @@ class TestSearch(TestMixin, SearchTestBase):
             results = self.Post.query.msearch('search*').all()
             self.assertEqual(len(results), 2)
 
+            results = self.Post.query.msearch('abc').all()
+            self.assertEqual(len(results), 0)
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromNames(

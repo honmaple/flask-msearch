@@ -200,7 +200,7 @@ class ElasticSearch(BaseBackend):
                 }
                 results = _self.msearch(model, query)['hits']['hits']
                 if not results:
-                    return self.filter(sqlalchemy.text('null'))
+                    return self.filter(False)
                 result_set = set()
                 for i in results:
                     result_set.add(i["_id"])
