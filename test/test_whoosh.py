@@ -57,6 +57,9 @@ class TestSearch(TestMixin, SearchTestBase):
                 rank_order=True).all()
             self.assertEqual(results[0].id, post3.id)
 
+            results = self.Post.query.msearch('abc').all()
+            self.assertEqual(len(results), 0)
+
 
 class TestCaseSearch(SearchTestBase):
     def setUp(self):
