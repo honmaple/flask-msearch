@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-16 15:18:54 (CST)
-# Last Update: Monday 2020-05-18 23:16:24 (CST)
+# Last Update: Monday 2021-03-22 23:40:45 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -14,7 +14,7 @@ from setuptools import setup
 
 setup(
     name='flask-msearch',
-    version='0.2.9',
+    version='0.2.9.1',
     url='https://github.com/honmaple/flask-msearch',
     license='BSD',
     author='honmaple',
