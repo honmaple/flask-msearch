@@ -255,7 +255,7 @@ class WhooshSearch(BaseBackend):
                     **kwargs,
                 )
                 if not results:
-                    return self.filter(sqlalchemy.text('null'))
+                    return self.filter(False)
                 result_set = set()
                 for i in results:
                     result_set.add(i[ix.pk])
