@@ -6,19 +6,34 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2020-05-18 23:06:43 (CST)
+# Last Update: Monday 2021-03-22 23:31:21 (CST)
 #          By:
 # Description:
 # **************************************************************************
 import logging
 
+from flask.helpers import locked_cached_property
 from flask_sqlalchemy import models_committed
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from werkzeug.utils import import_string
-from flask.helpers import locked_cached_property
 
 from .signal import default_signal
+
+
+def get_mapper(query):
+    if hasattr(query, "_mapper_zero"):
+        return query._mapper_zero()
+    return query._only_full_mapper_zero("get")
+
+
+def get_tables(model):
+    if hasattr(model, "registry"):
+        return [m.class_ for m in model.registry.mappers]
+    return [
+        m for m in model._decl_class_registry.values()
+        if hasattr(m, "__tablename__")
+    ]
 
 
 def relation_column(instance, fields):
@@ -51,8 +66,7 @@ class BaseSchema(object):
             if '.' in field:
                 fields = field.split('.')
                 field_attr = getattr(
-                    getattr(model, fields[0]).property.mapper.class_,
-                    fields[1])
+                    getattr(model, fields[0]).property.mapper.class_, fields[1])
             else:
                 field_attr = getattr(model, field)
 
@@ -124,15 +138,14 @@ class BaseBackend(object):
         self.app = app
         if not self.db:
             self.db = self.app.extensions['sqlalchemy'].db
-        self.db.Model.query_class = self._query_class(
-            self.db.Model.query_class)
+        self.db.Model.query_class = self._query_class(self.db.Model.query_class)
 
     def _query_class(self, q):
         _self = self
 
         class Query(q):
             def msearch(self, query, fields=None, limit=None, or_=False):
-                model = self._mapper_zero().class_
+                model = get_mapper(self).class_
                 return _self.msearch(model, query, fields, limit, or_)
 
         return Query
@@ -152,10 +165,10 @@ class BaseBackend(object):
         return ix
 
     def create_all_index(self, update=False, delete=False, yield_per=100):
-        all_models = self.db.Model._decl_class_registry.values()
-        models = [i for i in all_models if hasattr(i, '__searchable__')]
         ixs = []
-        for m in models:
+        for m in get_tables(self.db.Model):
+            if not hasattr(m, "__searchable__"):
+                continue
             ix = self.create_index(m, update, delete, yield_per)
             ixs.append(ix)
         return ixs

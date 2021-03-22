@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2020-05-18 22:53:24 (CST)
+# Last Update: Monday 2021-03-22 23:06:13 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -21,7 +21,7 @@ from whoosh.fields import BOOLEAN, DATETIME, ID, NUMERIC, TEXT
 from whoosh.fields import Schema as _Schema
 from whoosh.qparser import AndGroup, MultifieldParser, OrGroup
 
-from .backends import BaseBackend, BaseSchema, relation_column
+from .backends import BaseBackend, BaseSchema, relation_column, get_mapper
 
 DEFAULT_ANALYZER = StemmingAnalyzer()
 
@@ -244,7 +244,7 @@ class WhooshSearch(BaseBackend):
                     or_=False,
                     rank_order=False,
                     **kwargs):
-                model = self._mapper_zero().class_
+                model = get_mapper(self).class_
                 ix = _self.index(model)
                 results = _self.msearch(
                     model,

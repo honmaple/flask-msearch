@@ -13,6 +13,7 @@
 from sqlalchemy import types
 from elasticsearch import Elasticsearch
 from .backends import BaseBackend, BaseSchema,relation_column
+from .backends import BaseBackend, BaseSchema, relation_column, get_mapper
 import sqlalchemy
 
 
@@ -182,7 +183,7 @@ class ElasticSearch(BaseBackend):
                         or_=False,
                         rank_order=False,
                         **kwargs):
-                model = self._mapper_zero().class_
+                model = get_mapper(self).class_
                 # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
                 ix = _self.index(model)
                 query_string = {
