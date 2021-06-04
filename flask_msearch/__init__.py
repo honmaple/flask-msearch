@@ -6,7 +6,7 @@
 # Author: jianglin
 # Email: mail@honmaple.com
 # Created: 2017-04-15 20:03:18 (CST)
-# Last Update: Monday 2020-03-09 16:49:20 (CST)
+# Last Update: Friday 2021-06-04 10:14:13 (CST)
 #          By:
 # Description:
 # **************************************************************************
@@ -43,4 +43,6 @@ class Search(object):
         self._backend = backend(app, self.db, self.analyzer)
 
     def __getattr__(self, name):
+        if name == "_backend":
+            raise AttributeError("The flask app has not been initialized")
         return getattr(self._backend, name)
