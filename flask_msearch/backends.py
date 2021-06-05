@@ -158,7 +158,8 @@ class BaseBackend(object):
         if model == '__all__':
             return self.create_all_index(update, delete)
         ix = self.index(model)
-        instances = model.query.enable_eagerloads(False).yield_per(yield_per)
+        with self.app.app_context():
+            instances = model.query.enable_eagerloads(False).yield_per(yield_per)
         for instance in instances:
             self.create_one_index(instance, update, delete, False)
         ix.commit()
