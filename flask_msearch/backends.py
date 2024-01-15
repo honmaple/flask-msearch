@@ -1,24 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# **************************************************************************
-# Copyright © 2017-2020 jianglin
-# File Name: backends.py
-# Author: jianglin
-# Email: mail@honmaple.com
-# Created: 2017-04-15 20:03:27 (CST)
-# Last Update: Monday 2021-03-22 23:31:21 (CST)
-#          By:
-# Description:
-# **************************************************************************
+
 import logging
 
-from flask.helpers import locked_cached_property
 from flask_sqlalchemy import models_committed
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from werkzeug.utils import import_string
 
 from .signal import default_signal
+from ._compat import locked_cached_property
 
 
 def get_mapper(query):
@@ -165,13 +156,11 @@ class BaseBackend(object):
         return ix
 
     def create_all_index(self, update=False, delete=False, yield_per=100):
-        ixs = []
-        for m in get_tables(self.db.Model):
-            if not hasattr(m, "__searchable__"):
-                continue
-            ix = self.create_index(m, update, delete, yield_per)
-            ixs.append(ix)
-        return ixs
+        return [
+            self.create_index(m, update, delete, yield_per)
+            for m in get_tables(self.db.Model)
+            if hasattr(m, "__searchable__") or hasattr(m, "__msearch__")
+        ]
 
     def update_one_index(self, instance, commit=True):
         return self.create_one_index(instance, update=True, commit=commit)

@@ -1,18 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# **************************************************************************
-# Copyright © 2017-2020 jianglin
-# File Name: elasticsearch_backend.py
-# Author: jianglin
-# Email: mail@honmaple.com
-# Created: 2017-09-20 15:13:22 (CST)
-# Last Update: Monday 2020-05-18 22:53:15 (CST)
-#          By:
-# Description:
-# **************************************************************************
+
 from sqlalchemy import types
 from elasticsearch import Elasticsearch
-from .backends import BaseBackend, BaseSchema,relation_column
 from .backends import BaseBackend, BaseSchema, relation_column, get_mapper
 import sqlalchemy
 

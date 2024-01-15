@@ -1,15 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# ********************************************************************************
-# Copyright © 2019-2020 jianglin
-# File Name: signal.py
-# Author: jianglin
-# Email: mail@honmaple.com
-# Created: 2019-09-11 00:02:50 (CST)
-# Last Update: Monday 2020-03-09 16:49:32 (CST)
-#          By:
-# Description:
-# ********************************************************************************
 
 
 def default_signal(backend, sender, changes):

@@ -123,31 +123,33 @@ class TestRelationSearch(TestMixin, SearchTestBase):
             def msearch_post_tag(self, delete=False):
                 from sqlalchemy.sql import select
                 post = Post.__table__
-                sql = select([post.c.id]).where(post.c.tag_id == self.id)
-                return {
-                    'attrs': [
-                        {
-                            # id is Post's primary key
-                            'id': str(i[0]),
-                            'tag.name': self.name
-                        } for i in db.engine.execute(sql)
-                    ],
-                    '_index': Post
-                }
+                sql = select(post.c.id).where(post.c.tag_id == self.id)
+                with db.engine.connect() as conn:
+                    return {
+                        'attrs': [
+                            {
+                                # id is Post's primary key
+                                'id': str(i[0]),
+                                'tag.name': self.name
+                            } for i in conn.execute(sql)
+                        ],
+                        '_index': Post
+                    }
 
                 # or use sql text
                 from sqlalchemy import text
                 sql = text('select id from post where tag_id=' + str(self.id))
-                return {
-                    'attrs': [
-                        {
-                            # id is Post's primary key
-                            'id': str(i[0]),
-                            'tag.name': self.name
-                        } for i in db.engine.execute(sql)
-                    ],
-                    '_index': Post
-                }
+                with db.engine.connect() as conn:
+                    return {
+                        'attrs': [
+                            {
+                                # id is Post's primary key
+                                'id': str(i[0]),
+                                'tag.name': self.name
+                            } for i in conn.execute(sql)
+                        ],
+                        '_index': Post
+                    }
 
         class Post(db.Model, ModelSaveMixin):
             __tablename__ = 'post'
