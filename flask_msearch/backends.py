@@ -3,13 +3,12 @@
 
 import logging
 
-from flask_sqlalchemy import models_committed
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from werkzeug.utils import import_string
 
 from .signal import default_signal
-from ._compat import locked_cached_property
+from ._compat import locked_cached_property, models_committed
 
 
 def get_mapper(query):
